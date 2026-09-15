@@ -1,3 +1,6 @@
+import numpy as np
+
+
 class rental:
 
     def __init__(
@@ -26,5 +29,13 @@ class rental:
         self.insurance_monthly: float = self.insurance_yearly / 12
 
         # --- Initializing values to be updated later ---
-        self.investment_balance: float = 0
         self.investment_gains_percent_yearly: float = 0
+
+        # --- Initializing values to be updated each month or year ---
+        self.current_month_rent: float = 0
+        self.current_month_hoa: float = 0
+        self.current_month_insurance: float = 0
+        self.current_month_payment: float = 0
+
+        # --- Initializing arrays to store time-based data ---
+        self.investment_balance = np.zeros(1)

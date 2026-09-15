@@ -25,6 +25,50 @@ class buyerRenterComparison:
         self.buyer.investment_gains_percent_yearly = investment_gains_percent_yearly
         self.renter.investment_gains_percent_yearly = investment_gains_percent_yearly
 
+        # --- Update the renter's investment balance array length to match the buyer's ---
+        self.renter.investment_balance = np.zeros(self.buyer.loan_length_years * 12)
+
+        # --- Update the initial asset values based on the home purchase price ---
+        self.buyer.equity[0] = self.buyer.down_payment
+        self.renter.investment_balance[0] = (
+            self.buyer.down_payment + self.buyer.buying_costs
+        )
+
+        # --- Loop through each month and update monthly payments and asset value ---
+        for m in range(self.buyer.loan_length_years * 12):
+            buyer_interest = (
+                self.buyer.initial_loan_balance * self.buyer.interest_rate_monthly
+            )
+            buyer_principal = self.buyer.pi_monthly - buyer_interest
+            buyer_tax = self.buyer.home_value * self.buyer.tax_percent_yearly / 100 / 12
+            buyer_insurance = self.buyer.insurance_monthly
+            buyer_hoa = self.buyer.hoa_monthly
+            buyer_pmi = (
+                self.buyer.initial_loan_balance
+                * self.buyer.pmi_percent_yearly
+                / 100
+                / 12
+            )
+            buyer_maintenance = (
+                self.buyer.home_value * self.buyer.maintenance_percent_yearly / 100 / 12
+            )
+            self.buyer.current_month_payment = (
+                buyer_principal
+                + buyer_interest
+                + buyer_tax
+                + buyer_insurance
+                + buyer_hoa
+                + buyer_pmi
+                + buyer_maintenance
+            )
+
+            renter_rent = self.renter.rent_monthly
+            renter_hoa = self.renter.hoa_monthly
+            renter_insurance = self.renter.insurance_monthly
+            self.renter.current_month_payment = (
+                renter_rent + renter_hoa + renter_insurance
+            )
+
 
 if __name__ == "__main__":
 

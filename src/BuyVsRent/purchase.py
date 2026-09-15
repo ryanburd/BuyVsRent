@@ -1,3 +1,6 @@
+import numpy as np
+
+
 class purchase:
 
     def __init__(
@@ -21,6 +24,7 @@ class purchase:
 
         # --- User-provided details with no default value ---
         self.purchase_price: int = purchase_price
+        self.home_value: float = purchase_price
         self.down_payment_percent: float = down_payment_percent
         self.interest_APR_yearly: float = interest_APR_yearly
         self.hoa_monthly: float = hoa_monthly
@@ -43,6 +47,7 @@ class purchase:
         # --- Values calculated from the user-provided details ---
         self.down_payment: float = self.purchase_price * self.down_payment_percent / 100
         self.initial_loan_balance: float = self.purchase_price - self.down_payment
+        self.current_loan_balance: float = self.initial_loan_balance
         self.no_pmi_balance: float = self.purchase_price * 0.8
         self.interest_rate_monthly: float = self.interest_APR_yearly / 100 / 12
         self.pi_monthly: float = (
@@ -51,9 +56,21 @@ class purchase:
             * (1 + self.interest_rate_monthly) ** (self.loan_length_years * 12)
             / ((1 + self.interest_rate_monthly) ** (self.loan_length_years * 12) - 1)
         )
-        self.equity: float = self.down_payment
         self.buying_costs = self.purchase_price * self.buying_costs_percent
 
         # --- Initializing values to be updated later ---
-        self.investment_balance: float = 0
         self.investment_gains_percent_yearly: float = 0
+
+        # --- Initializing values to be updated each month or year ---
+        self.current_month_principal: float = 0
+        self.current_month_interest: float = 0
+        self.current_month_tax: float = 0
+        self.current_month_insurance: float = 0
+        self.current_month_hoa: float = 0
+        self.current_month_pmi: float = 0
+        self.current_month_maintenance: float = 0
+        self.current_month_payment: float = 0
+
+        # --- Initializing arrays to store time-based data ---
+        self.equity = np.zeros(self.loan_length_years * 12)
+        self.investment_balance = np.zeros(self.loan_length_years * 12)
