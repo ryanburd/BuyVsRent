@@ -1,4 +1,5 @@
 import numpy as np
+import pandas as pd
 
 
 class rental:
@@ -25,17 +26,28 @@ class rental:
             insurance_percent_increase_yearly
         )
 
-        # --- Values calculated from user-pprovided details ---
+        # --- Values calculated from user-provided details ---
         self.insurance_monthly: float = self.insurance_yearly / 12
 
-        # --- Initializing values to be updated later ---
+        # --- Initializing values from the home purchase the rental is being compared to. The main script will update these values. ---
+        self.years_in_house: float = 0
+        self.months_in_house: int = 0
+        self.initial_investment: float = 0
+
+        # --- Initializing the dataframe to store all time-based metrics for the rental. The main script will update the dataframe. ---
+        self.df_rent = pd.DataFrame(
+            0.0,
+            index=range(1, self.months_in_house + 1),
+            columns=[
+                "Rent",
+                "HOA",
+                "Rent insurance",
+                "Total housing payment (28%)",
+                "Investment balance",
+                "Investment gains",
+                "Investment deposited",
+            ],
+        )
+
+        # --- Initializing investment related metrics. The main script will update these values. ---
         self.investment_gains_percent_yearly: float = 0
-
-        # --- Initializing values to be updated each month or year ---
-        self.current_month_rent: float = 0
-        self.current_month_hoa: float = 0
-        self.current_month_insurance: float = 0
-        self.current_month_payment: float = 0
-
-        # --- Initializing arrays to store time-based data ---
-        self.investment_balance = np.zeros(1)
