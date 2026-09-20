@@ -43,6 +43,8 @@ class rental:
                 "HOA",
                 "Rent insurance",
                 "Total housing payment (28%)",
+                "Federal tax",
+                "Total with tax",
                 "Investment balance",
                 "Investment gains",
                 "Investment deposited",

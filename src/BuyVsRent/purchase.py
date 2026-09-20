@@ -1,6 +1,8 @@
 import numpy as np
 import pandas as pd
 
+import incomeAndTax as iat
+
 
 class purchase:
 
@@ -73,6 +75,7 @@ class purchase:
                 "Loan balance",
                 "Principal",
                 "Interest",
+                "Tax home value",
                 "Real estate tax %",
                 "Real estate taxes",
                 "Home insurance",
@@ -82,6 +85,10 @@ class purchase:
                 "Total housing payment (28%)",
                 "Maintenance",
                 "Total with maintenance",
+                "State tax",
+                "Itemizable expenses",
+                "Federal tax",
+                "Total with main. & tax",
                 "Investment balance",
                 "Investment gains",
                 "Investment deposited",
@@ -99,6 +106,7 @@ class purchase:
         self.df_loan.loc[1, "Principal"] = (
             self.pi_monthly - self.df_loan.loc[1, "Interest"]
         )
+        self.df_loan.loc[1, "Tax home value"] = self.initial_home_value
         self.df_loan.loc[1, "Real estate tax %"] = self.tax_percent_yearly
         self.df_loan.loc[1, "Real estate taxes"] = (
             self.initial_home_value * self.tax_percent_yearly / 100 / 12
@@ -113,14 +121,9 @@ class purchase:
         for m in range(2, self.months_in_house + 1):
 
             # Calculaute home value
-            if np.mod(m - 1, 12) != 0:
-                self.df_loan.loc[m, "Home value"] = self.df_loan.loc[
-                    m - 1, "Home value"
-                ]
-            else:
-                self.df_loan.loc[m, "Home value"] = self.df_loan.loc[
-                    m - 1, "Home value"
-                ] * (1 + self.appreciation_percent_yearly / 100)
+            self.df_loan.loc[m, "Home value"] = self.df_loan.loc[
+                m - 1, "Home value"
+            ] * ((1 + self.appreciation_percent_yearly / 100) ** (1 / 12))
 
             # Calculate equity
             self.df_loan.loc[m, "Equity"] = (
@@ -155,6 +158,15 @@ class purchase:
 
             # Calculate real estate taxes
             if np.mod(m - 1, 12) != 0:
+                self.df_loan.loc[m, "Tax home value"] = self.df_loan.loc[
+                    m - 1, "Tax home value"
+                ]
+            else:
+                self.df_loan.loc[m, "Tax home value"] = self.df_loan.loc[
+                    m - 1, "Tax home value"
+                ] * (1 + self.appreciation_percent_yearly / 100)
+
+            if np.mod(m - 1, 12) != 0:
                 self.df_loan.loc[m, "Real estate tax %"] = self.df_loan.loc[
                     m - 1, "Real estate tax %"
                 ]
@@ -164,7 +176,7 @@ class purchase:
                 ] * (1 + self.tax_percent_increase_yearly / 100)
 
             self.df_loan.loc[m, "Real estate taxes"] = (
-                self.df_loan.loc[m, "Home value"]
+                self.df_loan.loc[m, "Tax home value"]
                 * self.df_loan.loc[m, "Real estate tax %"]
                 / 100
                 / 12
