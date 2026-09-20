@@ -364,28 +364,28 @@ if __name__ == "__main__":
         purchase_price=600_000,
         down_payment_percent=10,
         interest_APR_yearly=7.125,
-        hoa_monthly=425,
-        years_in_house=30,
+        hoa_monthly=100,
+        years_in_house=10,
         loan_length_years=30,
         hoa_percent_increase_yearly=3,
         tax_percent_yearly=1.053,
         tax_percent_increase_yearly=1,
-        insurance_monthly=150,
-        insurance_percent_increase_yearly=5,
+        insurance_monthly=185,
+        insurance_percent_increase_yearly=3,
         pmi_percent_yearly=0.2,
         maintenance_percent_yearly=1,
         buying_costs_percent=3,
-        selling_costs_percent=6,
+        selling_costs_percent=0,
         appreciation_percent_yearly=3,
     )
 
     rental_1 = rental(
         rent_monthly=3_300,
-        hoa_monthly=100,
-        insurance_yearly=200,
+        hoa_monthly=0,
+        insurance_yearly=180,
         rent_percent_increase_yearly=3,
         hoa_percent_increase_yearly=3,
-        insurance_percent_increase_yearly=5,
+        insurance_percent_increase_yearly=3,
     )
 
     # --- Define income and federal tax metrics ---
