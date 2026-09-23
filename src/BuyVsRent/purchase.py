@@ -12,7 +12,6 @@ class purchase:
         down_payment_percent: float,
         interest_APR_yearly: float,
         hoa_monthly: float,
-        years_in_house: float,
         loan_length_years: int = 30,
         hoa_percent_increase_yearly: float = 3,
         tax_percent_yearly: float = 1,
@@ -24,51 +23,36 @@ class purchase:
         buying_costs_percent: float = 4,
         selling_costs_percent: float = 6,
         appreciation_percent_yearly: float = 2,
+        investment_gains_percent_yearly: float = 8,
     ):
 
-        # --- User-provided details with no default value ---
-        self.purchase_price: int = purchase_price
-        self.initial_home_value: float = purchase_price
-        self.down_payment_percent: float = down_payment_percent
-        self.interest_APR_yearly: float = interest_APR_yearly
-        self.hoa_monthly: float = hoa_monthly
-        self.years_in_house: float = years_in_house
-
-        # --- Details with default values. The user can override the defaul by providing a value ---
-        self.loan_length_years: int = loan_length_years
-        self.loan_length_months: int = self.loan_length_years * 12
-        self.hoa_percent_increase_yearly: float = hoa_percent_increase_yearly
-        self.tax_percent_yearly: float = tax_percent_yearly
-        self.tax_percent_increase_yearly: float = tax_percent_increase_yearly
-        self.insurance_monthly: int = insurance_monthly
-        self.insurance_percent_increase_yearly: float = (
-            insurance_percent_increase_yearly
-        )
-        self.pmi_percent_yearly: float = pmi_percent_yearly
-        self.maintenance_percent_yearly: float = maintenance_percent_yearly
-        self.buying_costs_percent: float = buying_costs_percent
-        self.selling_costs_percent: float = selling_costs_percent
-        self.appreciation_percent_yearly: float = appreciation_percent_yearly
+        # --- Values used by other class functions ---
+        self.appreciation_percent_yearly = appreciation_percent_yearly
+        self.tax_percent_increase_yearly = tax_percent_increase_yearly
+        self.insurance_percent_increase_yearly = insurance_percent_increase_yearly
+        self.hoa_percent_increase_yearly = hoa_percent_increase_yearly
+        self.pmi_percent_yearly = pmi_percent_yearly
+        self.maintenance_percent_yearly = maintenance_percent_yearly
+        self.investment_gains_percent_yearly = investment_gains_percent_yearly
 
         # --- Values calculated from the user-provided details ---
-        self.months_in_house: int = int(np.round(self.years_in_house * 12, 0))
-        self.down_payment: float = self.purchase_price * self.down_payment_percent / 100
-        self.initial_loan_balance: float = self.purchase_price - self.down_payment
-        self.current_loan_balance: float = self.initial_loan_balance
-        self.no_pmi_balance: float = self.purchase_price * 0.8
-        self.interest_rate_monthly: float = self.interest_APR_yearly / 100 / 12
+        loan_length_months: int = loan_length_years * 12
+        self.down_payment: float = purchase_price * down_payment_percent / 100
+        self.initial_loan_balance: float = purchase_price - self.down_payment
+        self.no_pmi_balance: float = purchase_price * 0.8
+        self.interest_rate_monthly: float = interest_APR_yearly / 100 / 12
         self.pi_monthly: float = (
             self.initial_loan_balance
             * self.interest_rate_monthly
-            * (1 + self.interest_rate_monthly) ** (self.loan_length_months)
-            / ((1 + self.interest_rate_monthly) ** (self.loan_length_months) - 1)
+            * (1 + self.interest_rate_monthly) ** (loan_length_months)
+            / ((1 + self.interest_rate_monthly) ** (loan_length_months) - 1)
         )
-        self.buying_costs = self.purchase_price * self.buying_costs_percent / 100
+        self.buying_costs = purchase_price * buying_costs_percent / 100
 
         # --- DataFrame that stores values for different metrics each month of the loan ---
-        self.df_loan = pd.DataFrame(
+        self.df = pd.DataFrame(
             0.0,
-            index=range(1, self.months_in_house + 1),
+            index=range(1, loan_length_months + 1),
             columns=[
                 "Home value",
                 "Equity",
@@ -97,142 +81,188 @@ class purchase:
         )
 
         # Initialize each metric
-        self.df_loan.loc[1, "Home value"] = self.initial_home_value
-        self.df_loan.loc[1, "Equity"] = self.down_payment
-        self.df_loan.loc[1, "Loan balance"] = self.initial_loan_balance
-        self.df_loan.loc[1, "Interest"] = (
+        self.df.loc[1, "Home value"] = purchase_price
+        self.df.loc[1, "Equity"] = self.down_payment
+        self.df.loc[1, "Loan balance"] = self.initial_loan_balance
+        self.df.loc[1, "Interest"] = (
             self.initial_loan_balance * self.interest_rate_monthly
         )
-        self.df_loan.loc[1, "Principal"] = (
-            self.pi_monthly - self.df_loan.loc[1, "Interest"]
+        self.df.loc[1, "Principal"] = self.pi_monthly - self.df.loc[1, "Interest"]
+        self.df.loc[1, "Tax home value"] = purchase_price
+        self.df.loc[1, "Real estate tax %"] = tax_percent_yearly
+        self.df.loc[1, "Real estate taxes"] = (
+            purchase_price * tax_percent_yearly / 100 / 12
         )
-        self.df_loan.loc[1, "Tax home value"] = self.initial_home_value
-        self.df_loan.loc[1, "Real estate tax %"] = self.tax_percent_yearly
-        self.df_loan.loc[1, "Real estate taxes"] = (
-            self.initial_home_value * self.tax_percent_yearly / 100 / 12
-        )
-        self.df_loan.loc[1, "Home insurance"] = self.insurance_monthly
-        self.df_loan.loc[1, "HOA"] = self.hoa_monthly
-        self.df_loan.loc[1, "PMI"] = (
-            self.initial_loan_balance * self.pmi_percent_yearly / 100 / 12
+        self.df.loc[1, "Home insurance"] = insurance_monthly
+        self.df.loc[1, "HOA"] = hoa_monthly
+        self.df.loc[1, "PMI"] = (
+            self.initial_loan_balance * pmi_percent_yearly / 100 / 12
         )
 
-        # --- Loop through each month of the loan and calculate metrics that need time-based calculations ---
-        for m in range(2, self.months_in_house + 1):
+    def update_home_value(self, month):
+        self.df.loc[month, "Home value"] = self.df.loc[month - 1, "Home value"] * (
+            (1 + self.appreciation_percent_yearly / 100) ** (1 / 12)
+        )
 
-            # Calculaute home value
-            self.df_loan.loc[m, "Home value"] = self.df_loan.loc[
-                m - 1, "Home value"
-            ] * ((1 + self.appreciation_percent_yearly / 100) ** (1 / 12))
+    def update_equity(self, month):
+        self.df.loc[month, "Equity"] = (
+            self.df.loc[month - 1, "Equity"]
+            + self.df.loc[month - 1, "Principal"]
+            + (self.df.loc[month, "Home value"] - self.df.loc[month - 1, "Home value"])
+        )
 
-            # Calculate equity
-            self.df_loan.loc[m, "Equity"] = (
-                self.df_loan.loc[m - 1, "Equity"]
-                + self.df_loan.loc[m - 1, "Principal"]
-                + (
-                    self.df_loan.loc[m, "Home value"]
-                    - self.df_loan.loc[m - 1, "Home value"]
-                )
+    def update_loan_balance(self, month):
+        self.df.loc[month, "Loan balance"] = (
+            self.df.loc[month - 1, "Loan balance"] - self.df.loc[month - 1, "Principal"]
+        )
+        if abs(self.df.loc[month, "Loan balance"]) < 1:
+            self.df.loc[month, "Loan balance"] = 0
+
+    def update_interest(self, month):
+        self.df.loc[month, "Interest"] = (
+            self.df.loc[month, "Loan balance"] * self.interest_rate_monthly
+        )
+
+    def update_principal(self, month):
+        if self.df.loc[month, "Loan balance"] == 0:
+            self.df.loc[month, "Principal"] = 0
+        else:
+            self.df.loc[month, "Principal"] = (
+                self.pi_monthly - self.df.loc[month, "Interest"]
             )
 
-            # Calculate loan balance
-            self.df_loan.loc[m, "Loan balance"] = (
-                self.df_loan.loc[m - 1, "Loan balance"]
-                - self.df_loan.loc[m - 1, "Principal"]
-            )
-            if abs(self.df_loan.loc[m, "Loan balance"]) < 1:
-                self.df_loan.loc[m, "Loan balance"] = 0
+    def update_real_estate_taxes(self, month):
+        if np.mod(month - 1, 12) != 0:
+            self.df.loc[month, "Tax home value"] = self.df.loc[
+                month - 1, "Tax home value"
+            ]
+        else:
+            self.df.loc[month, "Tax home value"] = self.df.loc[
+                month - 1, "Tax home value"
+            ] * (1 + self.appreciation_percent_yearly / 100)
 
-            # Calculate interest
-            self.df_loan.loc[m, "Interest"] = (
-                self.df_loan.loc[m, "Loan balance"] * self.interest_rate_monthly
-            )
+        if np.mod(month - 1, 12) != 0:
+            self.df.loc[month, "Real estate tax %"] = self.df.loc[
+                month - 1, "Real estate tax %"
+            ]
+        else:
+            self.df.loc[month, "Real estate tax %"] = self.df.loc[
+                month - 1, "Real estate tax %"
+            ] * (1 + self.tax_percent_increase_yearly / 100)
 
-            # Calculate principal
-            if self.df_loan.loc[m, "Loan balance"] == 0:
-                self.df_loan.loc[m, "Principal"] = 0
-            else:
-                self.df_loan.loc[m, "Principal"] = (
-                    self.pi_monthly - self.df_loan.loc[m, "Interest"]
-                )
+        self.df.loc[month, "Real estate taxes"] = (
+            self.df.loc[month, "Tax home value"]
+            * self.df.loc[month, "Real estate tax %"]
+            / 100
+            / 12
+        )
 
-            # Calculate real estate taxes
-            if np.mod(m - 1, 12) != 0:
-                self.df_loan.loc[m, "Tax home value"] = self.df_loan.loc[
-                    m - 1, "Tax home value"
-                ]
-            else:
-                self.df_loan.loc[m, "Tax home value"] = self.df_loan.loc[
-                    m - 1, "Tax home value"
-                ] * (1 + self.appreciation_percent_yearly / 100)
+    def update_insurance(self, month):
+        if np.mod(month - 1, 12) != 0:
+            self.df.loc[month, "Home insurance"] = self.df.loc[
+                month - 1, "Home insurance"
+            ]
+        else:
+            self.df.loc[month, "Home insurance"] = self.df.loc[
+                month - 1, "Home insurance"
+            ] * (1 + self.insurance_percent_increase_yearly / 100)
 
-            if np.mod(m - 1, 12) != 0:
-                self.df_loan.loc[m, "Real estate tax %"] = self.df_loan.loc[
-                    m - 1, "Real estate tax %"
-                ]
-            else:
-                self.df_loan.loc[m, "Real estate tax %"] = self.df_loan.loc[
-                    m - 1, "Real estate tax %"
-                ] * (1 + self.tax_percent_increase_yearly / 100)
-
-            self.df_loan.loc[m, "Real estate taxes"] = (
-                self.df_loan.loc[m, "Tax home value"]
-                * self.df_loan.loc[m, "Real estate tax %"]
-                / 100
-                / 12
+    def update_hoa(self, month):
+        if np.mod(month - 1, 12) != 0:
+            self.df.loc[month, "HOA"] = self.df.loc[month - 1, "HOA"]
+        else:
+            self.df.loc[month, "HOA"] = self.df.loc[month - 1, "HOA"] * (
+                1 + self.hoa_percent_increase_yearly / 100
             )
 
-            # Calculate home insurance
-            if np.mod(m - 1, 12) != 0:
-                self.df_loan.loc[m, "Home insurance"] = self.df_loan.loc[
-                    m - 1, "Home insurance"
-                ]
-            else:
-                self.df_loan.loc[m, "Home insurance"] = self.df_loan.loc[
-                    m - 1, "Home insurance"
-                ] * (1 + self.insurance_percent_increase_yearly / 100)
+    def update_pmi(self, month):
+        if self.df.loc[month, "Loan balance"] > self.no_pmi_balance:
+            self.df.loc[month, "PMI"] = (
+                self.initial_loan_balance * self.pmi_percent_yearly / 100 / 12
+            )
 
-            # Calculate HOA fee
-            if np.mod(m - 1, 12) != 0:
-                self.df_loan.loc[m, "HOA"] = self.df_loan.loc[m - 1, "HOA"]
-            else:
-                self.df_loan.loc[m, "HOA"] = self.df_loan.loc[m - 1, "HOA"] * (
-                    1 + self.hoa_percent_increase_yearly / 100
-                )
-
-            # Calculate PMI
-            if self.df_loan.loc[m, "Loan balance"] > self.no_pmi_balance:
-                self.df_loan.loc[m, "PMI"] = (
-                    self.initial_loan_balance * self.pmi_percent_yearly / 100 / 12
-                )
-
-        # --- Calculate columns that don't need time-based calculations ---
-
-        # Calculate PITI
-        self.df_loan["PITI"] = (
-            self.df_loan["Principal"]
-            + self.df_loan["Interest"]
-            + self.df_loan["Real estate taxes"]
-            + self.df_loan["Home insurance"]
+    def calculate_piti(self):
+        self.df["PITI"] = (
+            self.df["Principal"]
+            + self.df["Interest"]
+            + self.df["Real estate taxes"]
+            + self.df["Home insurance"]
         )
 
-        # Calculate total housing payment, excluding maintenance. This is the 28% rule number.
-        self.df_loan["Total housing payment (28%)"] = (
-            self.df_loan["PITI"] + self.df_loan["HOA"] + self.df_loan["PMI"]
+    def calculate_total_housing_payment(self):
+        self.df["Total housing payment (28%)"] = (
+            self.df["PITI"] + self.df["HOA"] + self.df["PMI"]
         )
 
-        # Calculate average maintenance costs
-        self.df_loan["Maintenance"] = (
-            self.df_loan["Home value"] * self.maintenance_percent_yearly / 100 / 12
+    def calculate_maintenance_costs(self):
+        self.df["Maintenance"] = (
+            self.df["Home value"] * self.maintenance_percent_yearly / 100 / 12
         )
 
-        # Calculate total payment including maintenance
-        self.df_loan["Total with maintenance"] = (
-            self.df_loan["Total housing payment (28%)"] + self.df_loan["Maintenance"]
+    def calculate_total_with_main(self):
+        self.df["Total with maintenance"] = (
+            self.df["Total housing payment (28%)"] + self.df["Maintenance"]
         )
 
-        # --- Initializing investment related metrics. The main script will update these values. ---
-        self.investment_gains_percent_yearly: float = 0
+    def calculate_state_tax(self, iat):
+        self.df["State tax"] = iat.df["Yearly state standard taxes"] / 12
+
+    def calculate_item_expenses(self):
+        self.df["Itemizable expenses"] = (
+            self.df["Interest"] + self.df["Real estate taxes"] + self.df["State tax"]
+        )
+
+    def calculate_federal_tax(self, iat):
+        self.df["Federal tax"] = (
+            iat.df[
+                ["Yearly federal standard taxes", "Yearly federal itemized taxes"]
+            ].min(axis=1)
+            / 12
+        )
+
+    def calculate_total_with_tax(self):
+        self.df["Total with main. & tax"] = (
+            self.df["Total with maintenance"] + self.df["Federal tax"]
+        )
+
+    def initialize_deposited(self, renter):
+        if (
+            self.df.loc[1, "Total with main. & tax"]
+            < renter.df.loc[1, "Total with tax"]
+        ):
+            self.df.loc[1, "Investment deposited"] = (
+                renter.df.loc[1, "Total with tax"]
+                - self.df.loc[1, "Total with main. & tax"]
+            )
+        else:
+            self.df.loc[1, "Investment deposited"] = 0
+
+    def update_balance(self, month):
+        self.df.loc[month, "Investment balance"] = (
+            self.df.loc[month - 1, "Investment balance"]
+            + self.df.loc[month - 1, "Investment gains"]
+            + self.df.loc[month - 1, "Investment deposited"]
+        )
+
+    def update_gains(self, month):
+        self.df.loc[month, "Investment gains"] = self.df.loc[
+            month, "Investment balance"
+        ] * ((1 + self.investment_gains_percent_yearly / 100) ** (1 / 12) - 1)
+
+    def update_deposited(self, month, renter):
+        if (
+            self.df.loc[month, "Total with maintenance"]
+            < renter.df.loc[month, "Total housing payment (28%)"]
+        ):
+            self.df.loc[month, "Investment deposited"] = (
+                renter.df.loc[month, "Total housing payment (28%)"]
+                - self.df.loc[month, "Total with maintenance"]
+            )
+        else:
+            self.df.loc[month, "Investment deposited"] = 0
+
+    def calculate_total_assets(self):
+        self.df["Total assets"] = self.df["Equity"] + self.df["Investment balance"]
 
 
 if __name__ == "__main__":
@@ -255,4 +285,4 @@ if __name__ == "__main__":
         appreciation_percent_yearly=2,
     )
 
-    print(example_purchase.df_loan)
+    print(example_purchase.df)

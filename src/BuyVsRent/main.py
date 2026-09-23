@@ -7,385 +7,148 @@ from rental import rental
 from incomeAndTax import incomeAndTax
 
 
-class buyerRenterComparison:
+def calculate_assets(
+    buyer: purchase,
+    renter: rental,
+    iat: incomeAndTax,
+    loan_length_years: float,
+    years_in_home: float,
+):
 
-    def __init__(
-        self,
-        buyer: purchase,
-        renter: rental,
-        iat: incomeAndTax,
-        investment_gains_percent_yearly: float,
-    ):
+    # --- Loop through each month of the loan and update metrics for the renter, income, and standard taxes ---
+    loan_length_months: int = np.round(loan_length_years * 12, 0)
+    for m in range(2, loan_length_months + 1):
 
-        # --- Define the buyer and renter
-        self.buyer: purchase = buyer
-        self.renter: rental = renter
-        self.iat: incomeAndTax = iat
+        buyer.update_home_value(month=m)
+        buyer.update_equity(month=m)
+        buyer.update_loan_balance(month=m)
+        buyer.update_interest(month=m)
+        buyer.update_principal(month=m)
+        buyer.update_real_estate_taxes(month=m)
+        buyer.update_insurance(month=m)
+        buyer.update_hoa(month=m)
+        buyer.update_pmi(month=m)
 
-        # --- Update values for the renter based on the buyer's data ---
-        self.renter.years_in_house = self.buyer.years_in_house
-        self.renter.months_in_house = self.buyer.months_in_house
-        self.renter.initial_investment = (
-            self.buyer.down_payment + self.buyer.buying_costs
-        )
+        renter.update_rent(month=m)
+        renter.update_hoa(month=m)
+        renter.update_insurance(month=m)
 
-        # --- Initialize the renter's time-based dataframe metrics ---
-        self.renter.df_rent.loc[1, "Rent"] = self.renter.rent_monthly
-        self.renter.df_rent.loc[1, "HOA"] = self.renter.hoa_monthly
-        self.renter.df_rent.loc[1, "Rent insurance"] = self.renter.insurance_monthly
+        iat.update_yearly_income(month=m)
 
-        # --- Create dataframe for YEARLY income and taxes each month ---
-        self.df_iat = pd.DataFrame(
-            0.0,
-            index=range(1, self.buyer.months_in_house + 1),
-            columns=[
-                "Yearly income",
-                "Federal standard deduction",
-                "Federal standard gross income",
-                "Yearly federal standard taxes",
-                "Federal itemized deduction",
-                "Federal itemized gross income",
-                "Yearly federal itemized taxes",
-                "10 % max",
-                "12 % max",
-                "22 % max",
-                "24 % max",
-                "32 % max",
-                "35 % max",
-                "37 % max",
-                "State deduction",
-                "State gross income",
-                "Yearly state taxes",
-                "2 % max",
-                "3 % max",
-                "5 % max",
-                "5.75 % max",
-            ],
-        )
+        iat.update_yearly_federal_std_deduction(month=m)
+        iat.update_yearly_federal_std_gross(month=m)
+        iat.update_yearly_federal_brackets(month=m)
+        iat.update_yearly_federal_std_taxes(month=m)
 
-        # --- Initialize the first month of income and tax metrics ---
-        self.df_iat.loc[1, "Yearly income"] = self.iat.income_yearly
+        iat.update_yearly_state_std_deduction(month=m)
+        iat.update_yearly_state_std_gross(month=m)
+        iat.update_yearly_state_brackets(month=m)
+        iat.update_yearly_state_std_taxes(month=m)
 
-        self.df_iat.loc[1, "Federal standard deduction"] = (
-            self.iat.federal_standard_deduction
-        )
-        self.df_iat.loc[1, "Federal standard gross income"] = (
-            self.iat.income_yearly - self.iat.federal_standard_deduction
-        )
-        self.df_iat.loc[1, "10 % max":"37 % max"] = self.iat.federal_tax_brackets
+    # --- Update the first month's YEARLY taxes with standard deduction. These values can't be initialized before the time-loop because _________ ---
+    iat.update_first_month_taxes()
 
-        self.df_iat.loc[1, "State deduction"] = self.iat.state_standard_deduction
-        self.df_iat.loc[1, "State gross income"] = (
-            self.iat.income_yearly - self.iat.state_standard_deduction
-        )
-        self.df_iat.loc[1, "2 % max":"5.75 % max"] = self.iat.state_tax_brackets
+    # --- Calculate buyer's metrics that can be done outside the time-loop ---
+    buyer.calculate_piti()
+    buyer.calculate_total_housing_payment()
+    buyer.calculate_maintenance_costs()
+    buyer.calculate_total_with_main()
+    buyer.calculate_state_tax(iat=iat)
+    buyer.calculate_item_expenses()
 
-        # --- Loop through each month of the loan and calculate metrics ---
-        for m in range(2, self.renter.months_in_house + 1):
+    iat.calculate_yearly_federal_item_deduction(buyer=buyer)
+    iat.calculate_yearly_federal_item_gross()
+    iat.calculate_yearly_federal_item_taxes()
 
-            # Calculate rent
-            if np.mod(m - 1, 12) != 0:
-                self.renter.df_rent.loc[m, "Rent"] = self.renter.df_rent.loc[
-                    m - 1, "Rent"
-                ]
-            else:
-                self.renter.df_rent.loc[m, "Rent"] = self.renter.df_rent.loc[
-                    m - 1, "Rent"
-                ] * (1 + self.renter.rent_percent_increase_yearly / 100)
+    buyer.calculate_federal_tax(iat=iat)
+    buyer.calculate_total_with_tax()
 
-            # Calculate HOA fee
-            if np.mod(m - 1, 12) != 0:
-                self.renter.df_rent.loc[m, "HOA"] = self.renter.df_rent.loc[
-                    m - 1, "HOA"
-                ]
-            else:
-                self.renter.df_rent.loc[m, "HOA"] = self.renter.df_rent.loc[
-                    m - 1, "HOA"
-                ] * (1 + self.renter.hoa_percent_increase_yearly / 100)
+    # --- Calculate renter's metrics that can be done outside the time-loop ---
+    renter.calculate_total_payment()
+    renter.calculate_federal_taxes(iat=iat)
+    renter.calculate_total_with_tax()
 
-            # Calculate renter's insurance
-            if np.mod(m - 1, 12) != 0:
-                self.renter.df_rent.loc[m, "Rent insurance"] = self.renter.df_rent.loc[
-                    m - 1, "Rent insurance"
-                ]
-            else:
-                self.renter.df_rent.loc[m, "Rent insurance"] = self.renter.df_rent.loc[
-                    m - 1, "Rent insurance"
-                ] * (1 + self.renter.insurance_percent_increase_yearly / 100)
+    # --- Initialize investment metrics ---
+    buyer.df.loc[1, "Investment balance"] = 0
+    buyer.df.loc[1, "Investment gains"] = 0
+    buyer.initialize_deposited(renter=renter)
 
-            # Calculate YEARLY income
-            if np.mod(m - 1, 12) != 0:
-                self.df_iat.loc[m, "Yearly income"] = self.df_iat.loc[
-                    m - 1, "Yearly income"
-                ]
-            else:
-                self.df_iat.loc[m, "Yearly income"] = self.df_iat.loc[
-                    m - 1, "Yearly income"
-                ] * (1 + self.iat.income_percent_increase_yearly / 100)
+    renter.initialize_balance(buyer=buyer)
+    renter.intialize_gains()
+    renter.initialize_deposited(buyer=buyer)
 
-            # Calculate YEARLY federal standard deduction
-            if np.mod(m - 1, 12) != 0:
-                self.df_iat.loc[m, "Federal standard deduction"] = self.df_iat.loc[
-                    m - 1, "Federal standard deduction"
-                ]
-            else:
-                self.df_iat.loc[m, "Federal standard deduction"] = self.df_iat.loc[
-                    m - 1, "Federal standard deduction"
-                ] * (
-                    1
-                    + self.iat.federal_standard_deduction_percent_increase_yearly / 100
-                )
+    # --- Loop through each month of the loan and calculate the buyer's and renter's investment metrics ---
+    months_in_home: int = np.round(years_in_home * 12, 0)
+    for m in range(2, months_in_home + 1):
+        buyer.update_balance(month=m)
+        buyer.update_gains(month=m)
+        buyer.update_deposited(month=m, renter=renter)
 
-            # Calculate YEARLY federal gross income with standard deduction
-            self.df_iat.loc[m, "Federal standard gross income"] = (
-                self.df_iat.loc[m, "Yearly income"]
-                - self.df_iat.loc[m, "Federal standard deduction"]
-            )
+        renter.update_balance(month=m)
+        renter.update_gains(month=m)
+        renter.update_deposited(month=m, buyer=buyer)
 
-            # Calculate YEARLY federal tax bracket maximums
-            if np.mod(m - 1, 12) != 0:
-                self.df_iat.loc[m, "10 % max":"37 % max"] = self.df_iat.loc[
-                    m - 1, "10 % max":"37 % max"
-                ]
-            else:
-                self.df_iat.loc[m, "10 % max":"37 % max"] = self.df_iat.loc[
-                    m - 1, "10 % max":"37 % max"
-                ] * (1 + self.iat.federal_maxes_percent_increase_yearly / 100)
+    # --- Calculate buyer's total assets ---
+    buyer.calculate_total_assets()
 
-            # Calculate YEARLY federal taxes with standard deduction
-            self.df_iat.loc[m, "Yearly federal standard taxes"] = (
-                self.iat.calculate_federal_tax(
-                    self.df_iat.loc[m, "Federal standard gross income"]
-                )
-            )
 
-            # Calculate YEARLY state standard deduction
-            if np.mod(m - 1, 12) != 0:
-                self.df_iat.loc[m, "State deduction"] = self.df_iat.loc[
-                    m - 1, "State deduction"
-                ]
-            else:
-                self.df_iat.loc[m, "State deduction"] = self.df_iat.loc[
-                    m - 1, "State deduction"
-                ] * (
-                    1 + self.iat.state_standard_deduction_percent_increase_yearly / 100
-                )
-
-            # Calculate YEARLY state gross income with standard deduction
-            self.df_iat.loc[m, "State gross income"] = (
-                self.df_iat.loc[m, "Yearly income"]
-                - self.df_iat.loc[m, "State deduction"]
-            )
-
-            # Calculate YEARLY state tax bracket maximums
-            if np.mod(m - 1, 12) != 0:
-                self.df_iat.loc[m, "2 % max":"5.75 % max"] = self.df_iat.loc[
-                    m - 1, "2 % max":"5.75 % max"
-                ]
-            else:
-                self.df_iat.loc[m, "2 % max":"5.75 % max"] = self.df_iat.loc[
-                    m - 1, "2 % max":"5.75 % max"
-                ] * (1 + self.iat.state_maxes_percent_increase_yearly / 100)
-
-            # Calculate YEARLY state taxes with standard deduction
-            self.df_iat.loc[m, "Yearly state taxes"] = self.iat.calculate_state_tax(
-                self.df_iat.loc[m, "State gross income"]
-            )
-
-        # --- Update the first month's YEARLY taxes with standard deduction (same as second month for quick calculation) ---
-        self.df_iat.loc[1, "Yearly federal standard taxes"] = self.df_iat.loc[
-            2, "Yearly federal standard taxes"
-        ]
-
-        self.df_iat.loc[1, "Yearly state taxes"] = self.df_iat.loc[
-            2, "Yearly state taxes"
-        ]
-
-        # --- Calculate buyer's metrics that are not time-based ---
-        self.buyer.df_loan["State tax"] = self.df_iat["Yearly state taxes"] / 12
-
-        self.buyer.df_loan["Itemizable expenses"] = (
-            self.buyer.df_loan["Interest"]
-            + self.buyer.df_loan["Real estate taxes"]
-            + self.buyer.df_loan["State tax"]
-        )
-
-        self.df_iat["Federal itemized deduction"] = (
-            self.buyer.df_loan["Itemizable expenses"]
-            .groupby(np.arange(len(self.buyer.df_loan)) // 12)
-            .transform("sum")
-        )
-
-        self.df_iat["Federal itemized gross income"] = (
-            self.df_iat["Yearly income"] - self.df_iat["Federal itemized deduction"]
-        )
-
-        self.df_iat["Yearly federal itemized taxes"] = self.df_iat[
-            "Federal itemized gross income"
-        ].apply(self.iat.calculate_federal_tax)
-
-        self.buyer.df_loan["Federal tax"] = (
-            self.df_iat[
-                ["Yearly federal standard taxes", "Yearly federal itemized taxes"]
-            ].min(axis=1)
-            / 12
-        )
-
-        self.buyer.df_loan["Total with main. & tax"] = (
-            self.buyer.df_loan["Total with maintenance"]
-            + self.buyer.df_loan["Federal tax"]
-        )
-
-        # --- Calculate renter's metrics that are not time-based ---
-        self.renter.df_rent["Total housing payment (28%)"] = (
-            self.renter.df_rent["Rent"]
-            + self.renter.df_rent["HOA"]
-            + self.renter.df_rent["Rent insurance"]
-        )
-
-        self.renter.df_rent["Federal tax"] = (
-            self.df_iat["Yearly federal standard taxes"] / 12
-        )
-
-        self.renter.df_rent["Total with tax"] = (
-            self.renter.df_rent["Total housing payment (28%)"]
-            + self.renter.df_rent["Federal tax"]
-        )
-
-        # --- Update the buyer and renter's investment gains % (yearly)
-        self.buyer.investment_gains_percent_yearly = investment_gains_percent_yearly
-        self.renter.investment_gains_percent_yearly = investment_gains_percent_yearly
-
-        # --- Initialize the buyer's investment metrics ---
-        self.buyer.df_loan.loc[1, "Investment balance"] = 0
-        self.buyer.df_loan.loc[1, "Investment gains"] = 0
-        if (
-            self.buyer.df_loan.loc[1, "Total with main. & tax"]
-            < self.renter.df_rent.loc[1, "Total with tax"]
-        ):
-            self.buyer.df_loan.loc[1, "Investment deposited"] = (
-                self.renter.df_rent.loc[1, "Total with tax"]
-                - self.buyer.df_loan.loc[1, "Total with main. & tax"]
-            )
-        else:
-            self.buyer.df_loan.loc[1, "Investment deposited"] = 0
-
-        # --- Initialize the renter's investment metrics ---
-        self.renter.df_rent.loc[1, "Investment balance"] = (
-            self.renter.initial_investment
-        )
-        self.renter.df_rent.loc[1, "Investment gains"] = (
-            self.renter.initial_investment
-            * ((1 + self.renter.investment_gains_percent_yearly / 100) ** (1 / 12) - 1)
-        )
-        if (
-            self.buyer.df_loan.loc[1, "Total with main. & tax"]
-            > self.renter.df_rent.loc[1, "Total with tax"]
-        ):
-            self.renter.df_rent.loc[1, "Investment deposited"] = (
-                self.buyer.df_loan.loc[1, "Total with main. & tax"]
-                - self.renter.df_rent.loc[1, "Total with tax"]
-            )
-        else:
-            self.renter.df_rent.loc[1, "Investment deposited"] = 0
-
-        # --- Loop through each month of the loan and calculate the buyer's and renter's investment metrics ---
-        for m in range(2, self.buyer.months_in_house + 1):
-            # Calculate buyer's investment balance
-            self.buyer.df_loan.loc[m, "Investment balance"] = (
-                self.buyer.df_loan.loc[m - 1, "Investment balance"]
-                + self.buyer.df_loan.loc[m - 1, "Investment gains"]
-                + self.buyer.df_loan.loc[m - 1, "Investment deposited"]
-            )
-
-            # Calculate buyer's investment gains
-            self.buyer.df_loan.loc[m, "Investment gains"] = self.buyer.df_loan.loc[
-                m, "Investment balance"
-            ] * ((1 + self.buyer.investment_gains_percent_yearly / 100) ** (1 / 12) - 1)
-
-            # Calculate buyer's investment deposit, if any
-            if (
-                self.buyer.df_loan.loc[m, "Total with maintenance"]
-                < self.renter.df_rent.loc[m, "Total housing payment (28%)"]
-            ):
-                self.buyer.df_loan.loc[m, "Investment deposited"] = (
-                    self.renter.df_rent.loc[m, "Total housing payment (28%)"]
-                    - self.buyer.df_loan.loc[m, "Total with maintenance"]
-                )
-            else:
-                self.buyer.df_loan.loc[m, "Investment deposited"] = 0
-
-            # Calculate renter's investment balance
-            self.renter.df_rent.loc[m, "Investment balance"] = (
-                self.renter.df_rent.loc[m - 1, "Investment balance"]
-                + self.renter.df_rent.loc[m - 1, "Investment gains"]
-                + self.renter.df_rent.loc[m - 1, "Investment deposited"]
-            )
-
-            # Calculate renter's investment gains
-            self.renter.df_rent.loc[m, "Investment gains"] = self.renter.df_rent.loc[
-                m, "Investment balance"
-            ] * (
-                (1 + self.renter.investment_gains_percent_yearly / 100) ** (1 / 12) - 1
-            )
-
-            # Calculate renter's investment deposit, if any
-            if (
-                self.buyer.df_loan.loc[m, "Total with maintenance"]
-                > self.renter.df_rent.loc[m, "Total housing payment (28%)"]
-            ):
-                self.renter.df_rent.loc[m, "Investment deposited"] = (
-                    self.buyer.df_loan.loc[m, "Total with maintenance"]
-                    - self.renter.df_rent.loc[m, "Total housing payment (28%)"]
-                )
-            else:
-                self.renter.df_rent.loc[m, "Investment deposited"] = 0
-
-        # --- Calculate buyer's metrics that are not time-based ---
-        self.buyer.df_loan["Total assets"] = (
-            self.buyer.df_loan["Equity"] + self.buyer.df_loan["Investment balance"]
-        )
-
-    def plot_assets(self):
-        x_axis = self.buyer.df_loan.index / 12
-        plt.plot(x_axis, self.buyer.df_loan["Total assets"], label="Buying")
-        plt.plot(x_axis, self.renter.df_rent["Investment balance"], label="Renting")
-        plt.title("Total assets value of buying vs renting")
-        plt.xlabel("Years")
-        plt.ylabel("Total assets value ($)")
-        plt.legend()
-        plt.show()
+def plot_assets(buyer: purchase, renter: rental, years_in_home: float):
+    months_in_home = np.round(years_in_home * 12, 0)
+    x_axis = buyer.df.index / 12
+    plt.plot(x_axis, buyer.df["Total assets"], label="Buying")
+    plt.plot(x_axis, renter.df["Investment balance"], label="Renting")
+    plt.title("Total assets value of buying vs renting")
+    plt.xlabel("Years")
+    plt.xlim(0, years_in_home)
+    plt.ylabel("Total assets value ($)")
+    plt.ylim(
+        0,
+        1.1
+        * max(
+            buyer.df["Total assets"][months_in_home],
+            renter.df["Investment balance"][months_in_home],
+        ),
+    )
+    plt.legend()
+    plt.show()
 
 
 if __name__ == "__main__":
 
+    # --- Values common to the purchase and rental for comparison ---
+    loan_length_years = 30
+    years_in_home = 10
+    investment_gains_percent_yearly = 8
+
     # --- Initialize home purchases and home rentals
     purchase_1 = purchase(
-        purchase_price=600_000,
+        purchase_price=550_000,
         down_payment_percent=10,
         interest_APR_yearly=7.125,
-        hoa_monthly=100,
-        years_in_house=10,
-        loan_length_years=30,
+        hoa_monthly=450,
+        loan_length_years=loan_length_years,
         hoa_percent_increase_yearly=3,
         tax_percent_yearly=1.053,
         tax_percent_increase_yearly=1,
-        insurance_monthly=185,
+        insurance_monthly=80,
         insurance_percent_increase_yearly=3,
-        pmi_percent_yearly=0.2,
+        pmi_percent_yearly=0.18,
         maintenance_percent_yearly=1,
         buying_costs_percent=3,
         selling_costs_percent=0,
         appreciation_percent_yearly=3,
+        investment_gains_percent_yearly=8,
     )
 
     rental_1 = rental(
         rent_monthly=3_300,
         hoa_monthly=0,
-        insurance_yearly=180,
+        insurance_yearly=300,
         rent_percent_increase_yearly=3,
         hoa_percent_increase_yearly=3,
         insurance_percent_increase_yearly=3,
+        investment_gains_percent_yearly=8,
+        loan_length_years=loan_length_years,
     )
 
     # --- Define income and federal tax metrics ---
@@ -413,21 +176,19 @@ if __name__ == "__main__":
             "5.75 % max": None,
         },
         state_maxes_percent_increase_yearly=3,
+        loan_length_years=loan_length_years,
     )
 
     # --- Create pairs of 1 home purchase and 1 home rental to compare the
     # buyer's and renter's asset values over time. Each pair must have a shared
     # defined investment gains % (yearly) ---
-    brc_1_investment_gains_percent_yearly = 8
 
-    brc_1 = buyerRenterComparison(
+    calculate_assets(
         buyer=purchase_1,
         renter=rental_1,
         iat=iat_1,
-        investment_gains_percent_yearly=brc_1_investment_gains_percent_yearly,
+        loan_length_years=loan_length_years,
+        years_in_home=years_in_home,
     )
 
-    # print(purchase_1.df_loan.loc[:, "Total with main. & tax"].head(13))
-    # print(rental_1.df_rent.loc[:, "Total with tax"].head(13))
-    # print(brc_1.df_iat.head(13))
-    brc_1.plot_assets()
+    plot_assets(buyer=purchase_1, renter=rental_1, years_in_home=years_in_home)

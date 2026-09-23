@@ -1,3 +1,7 @@
+import numpy as np
+import pandas as pd
+
+
 class incomeAndTax:
 
     def __init__(
@@ -12,12 +16,11 @@ class incomeAndTax:
         state_standard_deduction_percent_increase_yearly: float,
         state_tax_brackets: dict[float, int],
         state_maxes_percent_increase_yearly: float,
+        loan_length_years: float = 30,
     ):
 
-        self.income_yearly: int = income_yearly
+        # --- Values used by other class functions ---
         self.income_percent_increase_yearly: float = income_percent_increase_yearly
-
-        self.federal_standard_deduction: int = federal_standard_deduction
         self.federal_standard_deduction_percent_increase_yearly: float = (
             federal_standard_deduction_percent_increase_yearly
         )
@@ -26,7 +29,6 @@ class incomeAndTax:
             federal_maxes_percent_increase_yearly
         )
 
-        self.state_standard_deduction: int = state_standard_deduction
         self.state_standard_deduction_percent_increase_yearly: float = (
             state_standard_deduction_percent_increase_yearly
         )
@@ -34,6 +36,51 @@ class incomeAndTax:
         self.state_maxes_percent_increase_yearly: float = (
             state_maxes_percent_increase_yearly
         )
+
+        # --- Values calculated from user-provided details ---
+        loan_length_months: float = np.round(loan_length_years * 12, 0)
+
+        # --- Create dataframe for YEARLY income and taxes each month ---
+        self.df = pd.DataFrame(
+            0.0,
+            index=range(1, loan_length_months + 1),
+            columns=[
+                "Yearly income",
+                "Federal standard deduction",
+                "Federal standard gross income",
+                "Yearly federal standard taxes",
+                "Federal itemized deduction",
+                "Federal itemized gross income",
+                "Yearly federal itemized taxes",
+                "10 % max",
+                "12 % max",
+                "22 % max",
+                "24 % max",
+                "32 % max",
+                "35 % max",
+                "37 % max",
+                "State standard deduction",
+                "State standard gross income",
+                "Yearly state standard taxes",
+                "2 % max",
+                "3 % max",
+                "5 % max",
+                "5.75 % max",
+            ],
+        )
+
+        # --- Initialize the first month of income and tax metrics ---
+        self.df.loc[1, "Yearly income"] = income_yearly
+
+        self.df.loc[1, "Federal standard deduction"] = federal_standard_deduction
+        self.df.loc[1, "Federal standard gross income"] = (
+            income_yearly - federal_standard_deduction
+        )
+        self.df.loc[1, "10 % max":"37 % max"] = self.federal_tax_brackets
+
+        self.df.loc[1, "State deduction"] = state_standard_deduction
+        self.df.loc[1, "State gross income"] = income_yearly - state_standard_deduction
+        self.df.loc[1, "2 % max":"5.75 % max"] = self.state_tax_brackets
 
     def calculate_federal_tax(self, gross_income):
 
@@ -120,3 +167,102 @@ class incomeAndTax:
                 tax += (gross_income - self.state_tax_brackets["2 % max"]) * 0.03
 
         return tax
+
+    def update_yearly_income(self, month):
+        if np.mod(month - 1, 12) != 0:
+            self.df.loc[month, "Yearly income"] = self.df.loc[
+                month - 1, "Yearly income"
+            ]
+        else:
+            self.df.loc[month, "Yearly income"] = self.df.loc[
+                month - 1, "Yearly income"
+            ] * (1 + self.income_percent_increase_yearly / 100)
+
+    def update_yearly_federal_std_deduction(self, month):
+        if np.mod(month - 1, 12) != 0:
+            self.df.loc[month, "Federal standard deduction"] = self.df.loc[
+                month - 1, "Federal standard deduction"
+            ]
+        else:
+            self.df.loc[month, "Federal standard deduction"] = self.df.loc[
+                month - 1, "Federal standard deduction"
+            ] * (1 + self.federal_standard_deduction_percent_increase_yearly / 100)
+
+    def update_yearly_federal_std_gross(self, month):
+        self.df.loc[month, "Federal standard gross income"] = (
+            self.df.loc[month, "Yearly income"]
+            - self.df.loc[month, "Federal standard deduction"]
+        )
+
+    def update_yearly_federal_brackets(self, month):
+        if np.mod(month - 1, 12) != 0:
+            self.df.loc[month, "10 % max":"37 % max"] = self.df.loc[
+                month - 1, "10 % max":"37 % max"
+            ]
+        else:
+            self.df.loc[month, "10 % max":"37 % max"] = self.df.loc[
+                month - 1, "10 % max":"37 % max"
+            ] * (1 + self.federal_maxes_percent_increase_yearly / 100)
+
+    def update_yearly_federal_std_taxes(self, month):
+        self.df.loc[month, "Yearly federal standard taxes"] = (
+            self.calculate_federal_tax(
+                self.df.loc[month, "Federal standard gross income"]
+            )
+        )
+
+    def update_yearly_state_std_deduction(self, month):
+        if np.mod(month - 1, 12) != 0:
+            self.df.loc[month, "State standard deduction"] = self.df.loc[
+                month - 1, "State standard deduction"
+            ]
+        else:
+            self.df.loc[month, "State standard deduction"] = self.df.loc[
+                month - 1, "State standard deduction"
+            ] * (1 + self.state_standard_deduction_percent_increase_yearly / 100)
+
+    def update_yearly_state_std_gross(self, month):
+        self.df.loc[month, "State standard gross income"] = (
+            self.df.loc[month, "Yearly income"]
+            - self.df.loc[month, "State standard deduction"]
+        )
+
+    def update_yearly_state_brackets(self, month):
+        if np.mod(month - 1, 12) != 0:
+            self.df.loc[month, "2 % max":"5.75 % max"] = self.df.loc[
+                month - 1, "2 % max":"5.75 % max"
+            ]
+        else:
+            self.df.loc[month, "2 % max":"5.75 % max"] = self.df.loc[
+                month - 1, "2 % max":"5.75 % max"
+            ] * (1 + self.state_maxes_percent_increase_yearly / 100)
+
+    def update_yearly_state_std_taxes(self, month):
+        self.df.loc[month, "Yearly state standard taxes"] = self.calculate_state_tax(
+            self.df.loc[month, "State standard gross income"]
+        )
+
+    def update_first_month_taxes(self):
+        self.df.loc[1, "Yearly federal standard taxes"] = self.df.loc[
+            2, "Yearly federal standard taxes"
+        ]
+        self.df.loc[1, "Yearly state standard taxes"] = self.df.loc[
+            2, "Yearly state standard taxes"
+        ]
+
+    def calculate_yearly_federal_item_deduction(self, buyer):
+        self.df["Federal itemized deduction"] = (
+            buyer.df["Itemizable expenses"]
+            .groupby(np.arange(len(buyer.df)) // 12)
+            .transform("sum")
+        )
+
+    def calculate_yearly_federal_item_gross(self):
+        self.df["Federal itemized gross income"] = (
+            self.df["Yearly income"] - self.df["Federal itemized deduction"]
+        )
+
+    def calculate_yearly_federal_item_taxes(self):
+        self.df["Yearly federal itemized taxes"] = self.df[
+            "Federal itemized gross income"
+        ].apply(self.calculate_federal_tax)
