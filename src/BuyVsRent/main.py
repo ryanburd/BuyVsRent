@@ -104,6 +104,9 @@ def calculate_assets(
 
 
 def view_df(df):
+    root = tk.Tk()
+    root.withdraw()
+
     window = tk.Toplevel()
     window.title("DataFrame")
 
@@ -181,35 +184,35 @@ if __name__ == "__main__":
     # --- Values common to the purchase and rental for comparison ---
     loan_length_years = 30
     years_in_home = 10
-    investment_gains_percent_yearly = 4
+    investment_gains_percent_yearly = 3
     capital_gains_tax_percent = 15
 
     # --- Initialize home purchases and home rentals
     purchase_1 = purchase(
-        purchase_price=650_000,
+        purchase_price=550_000,
         down_payment_percent=15,
         interest_rate_yearly=7.125,
-        hoa_monthly=0,
+        hoa_monthly=450,
         loan_length_years=loan_length_years,
-        hoa_percent_increase_yearly=0,
-        tax_percent_yearly=1.12,  # 1.053
-        tax_percent_increase_yearly=0,
-        insurance_monthly=80,
+        hoa_percent_increase_yearly=3,
+        tax_percent_yearly=1.053,
+        tax_percent_increase_yearly=1,
+        insurance_monthly=150,
         insurance_percent_increase_yearly=3,
         pmi_percent_yearly=0.09,  # 0.18
-        maintenance_percent_yearly=0.85,
-        buying_costs_percent=1.8,
-        selling_costs_percent=5,
-        appreciation_percent_yearly=4.97,
+        maintenance_percent_yearly=0.5,
+        buying_costs_percent=3,
+        selling_costs_percent=7,
+        appreciation_percent_yearly=4,
         investment_gains_percent_yearly=investment_gains_percent_yearly,
         capital_gains_tax_percent=capital_gains_tax_percent,
     )
 
     rental_1 = rental(
-        rent_monthly=2_600,
+        rent_monthly=3_000,
         hoa_monthly=0,
         insurance_yearly=456,
-        rent_percent_increase_yearly=3.2,
+        rent_percent_increase_yearly=3,
         hoa_percent_increase_yearly=0,
         insurance_percent_increase_yearly=3,
         investment_gains_percent_yearly=investment_gains_percent_yearly,

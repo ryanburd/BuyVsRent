@@ -185,7 +185,7 @@ class purchase:
     def update_pmi(self, month):
         if self.df.loc[month, "Loan balance"] > self.no_pmi_balance:
             self.df.loc[month, "PMI"] = (
-                self.initial_loan_balance * self.pmi_percent_yearly / 100 / 12
+                self.df.loc[month, "Loan balance"] * self.pmi_percent_yearly / 100 / 12
             )
 
     def calculate_piti(self):
