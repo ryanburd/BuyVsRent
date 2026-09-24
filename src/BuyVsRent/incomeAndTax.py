@@ -78,8 +78,10 @@ class incomeAndTax:
         )
         self.df.loc[1, "10 % max":"37 % max"] = self.federal_tax_brackets
 
-        self.df.loc[1, "State deduction"] = state_standard_deduction
-        self.df.loc[1, "State gross income"] = income_yearly - state_standard_deduction
+        self.df.loc[1, "State standard deduction"] = state_standard_deduction
+        self.df.loc[1, "State standard gross income"] = (
+            income_yearly - state_standard_deduction
+        )
         self.df.loc[1, "2 % max":"5.75 % max"] = self.state_tax_brackets
 
     def calculate_federal_tax(self, gross_income):

@@ -14,6 +14,7 @@ class rental:
         insurance_percent_increase_yearly: float = 5,
         investment_gains_percent_yearly: float = 8,
         loan_length_years: float = 30,
+        capital_gains_tax_percent: float = 15,
     ):
 
         # --- Values used by other class functions ---
@@ -23,6 +24,7 @@ class rental:
             insurance_percent_increase_yearly
         )
         self.investment_gains_percent_yearly = investment_gains_percent_yearly
+        self.capital_gains_tax_percent = capital_gains_tax_percent
 
         # --- Values calculated from user-provided details ---
         insurance_monthly: float = insurance_yearly / 12
@@ -42,6 +44,8 @@ class rental:
                 "Investment balance",
                 "Investment gains",
                 "Investment deposited",
+                "Cumulative investment sale tax",
+                "Net assets",
             ],
         )
 
@@ -106,6 +110,29 @@ class rental:
         else:
             self.df.loc[1, "Investment deposited"] = 0
 
+    def initialize_investment_tax(self, iat):
+        gross_income = min(
+            iat.df.loc[1, "Federal standard gross income"],
+            iat.df.loc[1, "Federal itemized gross income"],
+        )
+        if gross_income < iat.federal_tax_brackets["10 % max"]:
+            marginal_tax_percent = 10
+        elif gross_income < iat.federal_tax_brackets["12 % max"]:
+            marginal_tax_percent = 12
+        elif gross_income < iat.federal_tax_brackets["22 % max"]:
+            marginal_tax_percent = 22
+        elif gross_income < iat.federal_tax_brackets["24 % max"]:
+            marginal_tax_percent = 24
+        elif gross_income < iat.federal_tax_brackets["32 % max"]:
+            marginal_tax_percent = 32
+        elif gross_income < iat.federal_tax_brackets["35 % max"]:
+            marginal_tax_percent = 35
+        else:
+            marginal_tax_percent = 37
+        self.df.loc[1, "Cumulative investment sale tax"] = (
+            self.df.loc[1, "Investment gains"].sum() * marginal_tax_percent / 100
+        )
+
     def update_balance(self, month):
         self.df.loc[month, "Investment balance"] = (
             self.df.loc[month - 1, "Investment balance"]
@@ -129,3 +156,34 @@ class rental:
             )
         else:
             self.df.loc[month, "Investment deposited"] = 0
+
+    def update_cumulative_investment_tax(self, month, iat):
+        first_month_capital = max(month - 11, 1)
+        gross_income = iat.df.loc[month, "Federal standard gross income"]
+        if gross_income < iat.federal_tax_brackets["10 % max"]:
+            marginal_tax_percent = 10
+        elif gross_income < iat.federal_tax_brackets["12 % max"]:
+            marginal_tax_percent = 12
+        elif gross_income < iat.federal_tax_brackets["22 % max"]:
+            marginal_tax_percent = 22
+        elif gross_income < iat.federal_tax_brackets["24 % max"]:
+            marginal_tax_percent = 24
+        elif gross_income < iat.federal_tax_brackets["32 % max"]:
+            marginal_tax_percent = 32
+        elif gross_income < iat.federal_tax_brackets["35 % max"]:
+            marginal_tax_percent = 35
+        else:
+            marginal_tax_percent = 37
+        self.df.loc[month, "Cumulative investment sale tax"] = (
+            self.df.loc[: first_month_capital - 1, "Investment gains"].sum()
+            * self.capital_gains_tax_percent
+            / 100
+            + self.df.loc[first_month_capital:month, "Investment gains"].sum()
+            * marginal_tax_percent
+            / 100
+        )
+
+    def calculate_net_assets(self):
+        self.df["Net assets"] = (
+            self.df["Investment balance"] - self.df["Cumulative investment sale tax"]
+        )

@@ -10,7 +10,7 @@ class purchase:
         self,
         purchase_price: int,
         down_payment_percent: float,
-        interest_APR_yearly: float,
+        interest_rate_yearly: float,
         hoa_monthly: float,
         loan_length_years: int = 30,
         hoa_percent_increase_yearly: float = 3,
@@ -24,6 +24,7 @@ class purchase:
         selling_costs_percent: float = 6,
         appreciation_percent_yearly: float = 2,
         investment_gains_percent_yearly: float = 8,
+        capital_gains_tax_percent: float = 15,
     ):
 
         # --- Values used by other class functions ---
@@ -34,13 +35,15 @@ class purchase:
         self.pmi_percent_yearly = pmi_percent_yearly
         self.maintenance_percent_yearly = maintenance_percent_yearly
         self.investment_gains_percent_yearly = investment_gains_percent_yearly
+        self.selling_costs_percent = selling_costs_percent
+        self.capital_gains_tax_percent = capital_gains_tax_percent
 
         # --- Values calculated from the user-provided details ---
         loan_length_months: int = loan_length_years * 12
         self.down_payment: float = purchase_price * down_payment_percent / 100
         self.initial_loan_balance: float = purchase_price - self.down_payment
         self.no_pmi_balance: float = purchase_price * 0.8
-        self.interest_rate_monthly: float = interest_APR_yearly / 100 / 12
+        self.interest_rate_monthly: float = interest_rate_yearly / 100 / 12
         self.pi_monthly: float = (
             self.initial_loan_balance
             * self.interest_rate_monthly
@@ -77,6 +80,10 @@ class purchase:
                 "Investment gains",
                 "Investment deposited",
                 "Total assets",
+                "Selling costs",
+                "Cumulative investment sale tax",
+                "Cost to sell",
+                "Net assets",
             ],
         )
 
@@ -237,6 +244,29 @@ class purchase:
         else:
             self.df.loc[1, "Investment deposited"] = 0
 
+    def initialize_investment_tax(self, iat):
+        gross_income = min(
+            iat.df.loc[1, "Federal standard gross income"],
+            iat.df.loc[1, "Federal itemized gross income"],
+        )
+        if gross_income < iat.federal_tax_brackets["10 % max"]:
+            marginal_tax_percent = 10
+        elif gross_income < iat.federal_tax_brackets["12 % max"]:
+            marginal_tax_percent = 12
+        elif gross_income < iat.federal_tax_brackets["22 % max"]:
+            marginal_tax_percent = 22
+        elif gross_income < iat.federal_tax_brackets["24 % max"]:
+            marginal_tax_percent = 24
+        elif gross_income < iat.federal_tax_brackets["32 % max"]:
+            marginal_tax_percent = 32
+        elif gross_income < iat.federal_tax_brackets["35 % max"]:
+            marginal_tax_percent = 35
+        else:
+            marginal_tax_percent = 37
+        self.df.loc[1, "Cumulative investment sale tax"] = (
+            self.df.loc[1, "Investment gains"].sum() * marginal_tax_percent / 100
+        )
+
     def update_balance(self, month):
         self.df.loc[month, "Investment balance"] = (
             self.df.loc[month - 1, "Investment balance"]
@@ -261,15 +291,57 @@ class purchase:
         else:
             self.df.loc[month, "Investment deposited"] = 0
 
+    def update_cumulative_investment_tax(self, month, iat):
+        first_month_capital = max(month - 11, 1)
+        gross_income = min(
+            iat.df.loc[month, "Federal standard gross income"],
+            iat.df.loc[month, "Federal itemized gross income"],
+        )
+        if gross_income < iat.federal_tax_brackets["10 % max"]:
+            marginal_tax_percent = 10
+        elif gross_income < iat.federal_tax_brackets["12 % max"]:
+            marginal_tax_percent = 12
+        elif gross_income < iat.federal_tax_brackets["22 % max"]:
+            marginal_tax_percent = 22
+        elif gross_income < iat.federal_tax_brackets["24 % max"]:
+            marginal_tax_percent = 24
+        elif gross_income < iat.federal_tax_brackets["32 % max"]:
+            marginal_tax_percent = 32
+        elif gross_income < iat.federal_tax_brackets["35 % max"]:
+            marginal_tax_percent = 35
+        else:
+            marginal_tax_percent = 37
+        self.df.loc[month, "Cumulative investment sale tax"] = (
+            self.df.loc[: first_month_capital - 1, "Investment gains"].sum()
+            * self.capital_gains_tax_percent
+            / 100
+            + self.df.loc[first_month_capital:month, "Investment gains"].sum()
+            * marginal_tax_percent
+            / 100
+        )
+
     def calculate_total_assets(self):
         self.df["Total assets"] = self.df["Equity"] + self.df["Investment balance"]
+
+    def calculate_selling_costs(self):
+        self.df["Selling costs"] = (
+            self.df["Home value"] * self.selling_costs_percent / 100
+        )
+
+    def calculate_cost_to_sell(self):
+        self.df["Cost to sell"] = (
+            self.df["Selling costs"] + self.df["Cumulative investment sale tax"]
+        )
+
+    def calculate_net_assets(self):
+        self.df["Net assets"] = self.df["Total assets"] - self.df["Cost to sell"]
 
 
 if __name__ == "__main__":
     example_purchase = purchase(
         purchase_price=650_000,
         down_payment_percent=10,
-        interest_APR_yearly=7.125,
+        interest_rate_yearly=7.125,
         hoa_monthly=425,
         years_in_house=30.1,
         loan_length_years=30,
