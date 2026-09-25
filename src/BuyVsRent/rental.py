@@ -130,7 +130,7 @@ class rental:
         else:
             marginal_tax_percent = 37
         self.df.loc[1, "Cumulative investment sale tax"] = (
-            self.df.loc[1, "Investment gains"].sum() * marginal_tax_percent / 100
+            self.df.loc[1, "Investment gains"] * marginal_tax_percent / 100
         )
 
     def update_balance(self, month):
@@ -157,8 +157,11 @@ class rental:
         else:
             self.df.loc[month, "Investment deposited"] = 0
 
-    def update_cumulative_investment_tax(self, month, iat):
-        first_month_capital = max(month - 11, 1)
+    def update_cumulative_investment_tax(self, month, iat, savings):
+        if savings:
+            first_month_marginal = 1
+        else:
+            first_month_marginal = max(month - 11, 1)
         gross_income = iat.df.loc[month, "Federal standard gross income"]
         if gross_income < iat.federal_tax_brackets["10 % max"]:
             marginal_tax_percent = 10
@@ -175,10 +178,10 @@ class rental:
         else:
             marginal_tax_percent = 37
         self.df.loc[month, "Cumulative investment sale tax"] = (
-            self.df.loc[: first_month_capital - 1, "Investment gains"].sum()
+            self.df.loc[: first_month_marginal - 1, "Investment gains"].sum()
             * self.capital_gains_tax_percent
             / 100
-            + self.df.loc[first_month_capital:month, "Investment gains"].sum()
+            + self.df.loc[first_month_marginal:month, "Investment gains"].sum()
             * marginal_tax_percent
             / 100
         )

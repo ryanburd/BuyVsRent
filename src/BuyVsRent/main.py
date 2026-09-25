@@ -15,6 +15,7 @@ def calculate_assets(
     iat: incomeAndTax,
     loan_length_years: float,
     years_in_home: float,
+    savings: bool,
 ):
 
     # --- Loop through each month of the loan and update metrics for the renter, income, and standard taxes ---
@@ -86,12 +87,12 @@ def calculate_assets(
         buyer.update_balance(month=m)
         buyer.update_gains(month=m)
         buyer.update_deposited(month=m, renter=renter)
-        buyer.update_cumulative_investment_tax(month=m, iat=iat)
+        buyer.update_cumulative_investment_tax(month=m, iat=iat, savings=savings)
 
         renter.update_balance(month=m)
         renter.update_gains(month=m)
         renter.update_deposited(month=m, buyer=buyer)
-        renter.update_cumulative_investment_tax(month=m, iat=iat)
+        renter.update_cumulative_investment_tax(month=m, iat=iat, savings=savings)
 
     # --- Calculate buyer's total assets and cost to sell ---
     buyer.calculate_total_assets()
@@ -140,34 +141,38 @@ def view_df(df):
 
 
 def plot_assets(buyer: purchase, renter: rental, years_in_home: float):
+
+    fig, axs = plt.subplots(1, 2, constrained_layout=True)
+
     months_in_home = np.round(years_in_home * 12, 0)
     x_axis = buyer.df.index / 12
-    plt.plot(
+
+    axs[0].plot(
         x_axis,
         buyer.df["Total assets"],
         linestyle="-",
         color="tab:blue",
         label="Buying",
     )
-    plt.plot(x_axis, buyer.df["Net assets"], linestyle="--", color="tab:blue")
-    plt.plot(
+    axs[0].plot(x_axis, buyer.df["Net assets"], linestyle="--", color="tab:blue")
+    axs[0].plot(
         x_axis,
         renter.df["Investment balance"],
         linestyle="-",
         color="tab:orange",
         label="Renting",
     )
-    plt.plot(
+    axs[0].plot(
         x_axis,
         renter.df["Net assets"],
         linestyle="--",
         color="tab:orange",
     )
-    plt.title("Assets value of buying vs renting")
-    plt.xlabel("Years")
-    plt.xlim(0, years_in_home)
-    plt.ylabel("Total (solid) and Net (dashed) assets value ($)")
-    plt.ylim(
+    axs[0].set_title("Assets value of buying vs renting")
+    axs[0].set_xlabel("Years")
+    axs[0].set_xlim(0, years_in_home)
+    axs[0].set_ylabel("Total (solid) and Net (dashed) assets value ($)")
+    axs[0].set_ylim(
         0,
         1.1
         * max(
@@ -175,7 +180,36 @@ def plot_assets(buyer: purchase, renter: rental, years_in_home: float):
             renter.df["Investment balance"][months_in_home],
         ),
     )
-    plt.legend()
+    axs[0].legend()
+
+    axs[1].plot(
+        x_axis,
+        buyer.df["Total with maintenance"],
+        linestyle="-",
+        color="tab:blue",
+        label="Mortage + Maintenance",
+    )
+    axs[1].plot(
+        x_axis,
+        renter.df["Rent"],
+        linestyle="-",
+        color="tab:orange",
+        label="Chargeable Rent",
+    )
+    axs[1].set_title("Mortgage + Maintenance vs Chargeable Rent")
+    axs[1].set_xlabel("Years")
+    axs[1].set_xlim(0, years_in_home)
+    axs[1].set_ylabel("Monthly payment ($)")
+    axs[1].set_ylim(
+        0,
+        1.1
+        * max(
+            buyer.df["Total with maintenance"][months_in_home],
+            renter.df["Rent"][months_in_home],
+        ),
+    )
+    axs[1].legend()
+
     plt.show()
 
 
@@ -185,12 +219,13 @@ if __name__ == "__main__":
     loan_length_years = 30
     years_in_home = 10
     investment_gains_percent_yearly = 3
+    savings = True
     capital_gains_tax_percent = 15
 
     # --- Initialize home purchases and home rentals
     purchase_1 = purchase(
         purchase_price=550_000,
-        down_payment_percent=15,
+        down_payment_percent=10,
         interest_rate_yearly=7.125,
         hoa_monthly=450,
         loan_length_years=loan_length_years,
@@ -258,8 +293,9 @@ if __name__ == "__main__":
         iat=iat_1,
         loan_length_years=loan_length_years,
         years_in_home=years_in_home,
+        savings=savings,
     )
 
-    # view_df(purchase_1.df)
+    # view_df(rental_1.df)
 
     plot_assets(buyer=purchase_1, renter=rental_1, years_in_home=years_in_home)
