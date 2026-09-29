@@ -355,10 +355,10 @@ if __name__ == "__main__":
 
     # --- Define buying-specific metrics ---
     purchase_price = 550_000
-    us_down_payment_percent = 15
+    us_down_payment_percent = 12
     interest_rate_yearly = 7.125
     pmi_percent_yearly = 0.09  # 0.18 for 10%, 0.09 for 15%, 0 for 20%
-    family_down_payment_percent = 0
+    family_down_payment_percent = 3
     family_interest_rate_yearly = 1
     family_loan_length_years = 10
     hoa_monthly = 450

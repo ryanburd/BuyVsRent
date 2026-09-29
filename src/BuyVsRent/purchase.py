@@ -124,7 +124,7 @@ class purchase:
         self.df.loc[1, "Living in"] = True
         self.df.loc[1, "Chargeable rent"] = chargeable_rent
         self.df.loc[1, "Home value"] = purchase_price
-        self.df.loc[1, "Equity"] = self.us_down_payment
+        self.df.loc[1, "Equity"] = self.us_down_payment + self.family_down_payment
         self.df.loc[1, "Loan balance"] = self.initial_loan_balance
         self.df.loc[1, "Interest"] = (
             self.initial_loan_balance * self.interest_rate_monthly
