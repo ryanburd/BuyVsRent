@@ -20,18 +20,23 @@ def calculate_assets(
 
     # --- Loop through each month of the loan and update metrics for the renter, income, and standard taxes ---
     months_in_home: int = np.round(years_in_home * 12, 0)
-    for m in range(2, months_in_home + 1):
+    loan_length_months: int = np.round(loan_length_years * 12, 0)
+    for m in range(2, loan_length_months + 1):
 
+        buyer.update_living_in(month=m)
+        buyer.update_chargeable_rent(month=m)
         buyer.update_home_value(month=m)
         buyer.update_equity(month=m)
         buyer.update_loan_balance(month=m)
         buyer.update_interest(month=m)
         buyer.update_principal(month=m)
+        buyer.update_family_pi(month=m)
         buyer.update_real_estate_taxes(month=m)
         buyer.update_insurance(month=m)
         buyer.update_hoa(month=m)
         buyer.update_pmi(month=m)
 
+        renter.update_living_in(month=m)
         renter.update_rent(month=m)
         renter.update_hoa(month=m)
         renter.update_insurance(month=m)
@@ -56,6 +61,7 @@ def calculate_assets(
     buyer.calculate_total_housing_payment()
     buyer.calculate_maintenance_costs()
     buyer.calculate_total_with_main()
+    buyer.calculate_total_minus_rent()
     buyer.calculate_state_tax(iat=iat)
     buyer.calculate_item_expenses()
 
@@ -83,7 +89,7 @@ def calculate_assets(
     renter.initialize_investment_tax(iat=iat)
 
     # --- Loop through each month of the loan and calculate the buyer's and renter's investment metrics ---
-    for m in range(2, months_in_home + 1):
+    for m in range(2, loan_length_months + 1):
         buyer.update_balance(month=m)
         buyer.update_gains(month=m)
         buyer.update_deposited(month=m, renter=renter)
@@ -140,123 +146,333 @@ def view_df(df):
     window.mainloop()
 
 
-def plot_assets(buyer: purchase, renter: rental, years_in_home: float):
+def plot_assets(
+    short_buyer: purchase,
+    short_renter: rental,
+    long_buyer: purchase,
+    long_renter: rental,
+    years_in_home: float,
+    loan_length_years: float,
+):
 
-    fig, axs = plt.subplots(1, 2, constrained_layout=True)
+    fig, axs = plt.subplots(2, 3, constrained_layout=True)
 
     months_in_home = np.round(years_in_home * 12, 0)
-    x_axis = buyer.df.index / 12
+    short_x_axis = short_buyer.df[:months_in_home].index / 12
+    long_x_axis = long_buyer.df.index / 12
 
-    axs[0].plot(
-        x_axis,
-        buyer.df["Total assets"],
+    # --- Short-term scenarios ---
+    axs[0, 0].plot(
+        short_x_axis,
+        short_buyer.df.loc[:months_in_home, "Total assets"],
         linestyle="-",
         color="tab:blue",
         label="Buying",
     )
-    axs[0].plot(x_axis, buyer.df["Net assets"], linestyle="--", color="tab:blue")
-    axs[0].plot(
-        x_axis,
-        renter.df["Investment balance"],
+    axs[0, 0].plot(
+        short_x_axis,
+        short_buyer.df.loc[:months_in_home, "Net assets"],
+        linestyle="--",
+        color="tab:blue",
+        label="after selling",
+    )
+    axs[0, 0].plot(
+        short_x_axis,
+        short_renter.df.loc[:months_in_home, "Investment balance"],
         linestyle="-",
         color="tab:orange",
         label="Renting",
     )
-    axs[0].plot(
-        x_axis,
-        renter.df["Net assets"],
+    axs[0, 0].plot(
+        short_x_axis,
+        short_renter.df.loc[:months_in_home, "Net assets"],
         linestyle="--",
         color="tab:orange",
+        label="after selling",
     )
-    axs[0].set_title("Assets value of buying vs renting")
-    axs[0].set_xlabel("Years")
-    axs[0].set_xlim(0, years_in_home)
-    axs[0].set_ylabel("Total (solid) and Net (dashed) assets value ($)")
-    axs[0].set_ylim(
+    axs[0, 0].set_title("'Buy and Sell' vs 'Rent and Short-Term Save'")
+    axs[0, 0].set_xlabel("Years")
+    axs[0, 0].set_xlim(0, years_in_home)
+    axs[0, 0].set_ylabel("Total assets value ($)")
+    axs[0, 0].set_ylim(
         0,
-        1.1
-        * max(
-            buyer.df["Total assets"][months_in_home],
-            renter.df["Investment balance"][months_in_home],
-        ),
+        None,
     )
-    axs[0].legend()
+    axs[0, 0].legend()
 
-    axs[1].plot(
-        x_axis,
-        buyer.df["Total with maintenance"],
+    # --- Cost each month ---
+    axs[0, 1].plot(
+        short_x_axis,
+        short_buyer.df.loc[:months_in_home, "Total minus rent"],
         linestyle="-",
         color="tab:blue",
-        label="Mortage + Maintenance",
+        label="Buying",
     )
-    axs[1].plot(
-        x_axis,
-        renter.df["Rent"],
+    axs[0, 1].plot(
+        short_x_axis,
+        short_buyer.df.loc[:months_in_home, "Total with tax"],
+        linestyle="--",
+        color="tab:blue",
+        label="+ federal tax",
+    )
+    axs[0, 1].plot(
+        short_x_axis,
+        short_renter.df.loc[:months_in_home, "Total housing payment (28%)"],
         linestyle="-",
         color="tab:orange",
-        label="Chargeable Rent",
+        label="Renting",
     )
-    axs[1].set_title("Mortgage + Maintenance vs Chargeable Rent")
-    axs[1].set_xlabel("Years")
-    axs[1].set_xlim(0, years_in_home)
-    axs[1].set_ylabel("Monthly payment ($)")
-    axs[1].set_ylim(
+    axs[0, 1].plot(
+        short_x_axis,
+        short_renter.df.loc[:months_in_home, "Total with tax"],
+        linestyle="--",
+        color="tab:orange",
+        label="+ federal tax",
+    )
+    axs[0, 1].set_title("Monthly cost")
+    axs[0, 1].set_xlabel("Years")
+    axs[0, 1].set_xlim(0, years_in_home)
+    axs[0, 1].set_ylabel("$")
+    axs[0, 1].legend()
+
+    # --- Money saved each month ---
+    axs[0, 2].plot(
+        short_x_axis,
+        short_renter.df.loc[:months_in_home, "Investment deposited"],
+        linestyle="-",
+        color="tab:orange",
+        label="Renting",
+    )
+    axs[0, 2].set_title("Money saved each month by renting")
+    axs[0, 2].set_xlabel("Years")
+    axs[0, 2].set_xlim(0, years_in_home)
+    axs[0, 2].set_ylabel("$")
+    axs[0, 2].set_ylim(
         0,
-        1.1
-        * max(
-            buyer.df["Total with maintenance"][months_in_home],
-            renter.df["Rent"][months_in_home],
-        ),
+        None,
     )
-    axs[1].legend()
+
+    # --- Long-term scenarios ---
+    axs[1, 0].plot(
+        long_x_axis,
+        long_buyer.df["Total assets"],
+        linestyle="-",
+        color="tab:blue",
+        label="Buying",
+    )
+    axs[1, 0].plot(
+        long_x_axis,
+        long_buyer.df["Net assets"],
+        linestyle="--",
+        color="tab:blue",
+        label="after selling",
+    )
+    axs[1, 0].plot(
+        long_x_axis,
+        long_renter.df["Investment balance"],
+        linestyle="-",
+        color="tab:orange",
+        label="Renting",
+    )
+    axs[1, 0].plot(
+        long_x_axis,
+        long_renter.df["Net assets"],
+        linestyle="--",
+        color="tab:orange",
+        label="after selling",
+    )
+    axs[1, 0].set_title("'Buy and Keep' vs 'Rent and Long-Term Save'")
+    axs[1, 0].set_xlabel("Years")
+    axs[1, 0].set_xlim(0, loan_length_years)
+    axs[1, 0].set_ylabel("Total assets value ($)")
+    axs[1, 0].set_ylim(
+        0,
+        None,
+    )
+    axs[1, 0].legend()
+
+    # --- Cost each month ---
+    axs[1, 1].plot(
+        long_x_axis,
+        long_buyer.df["Total minus rent"],
+        linestyle="-",
+        color="tab:blue",
+        label="Buying",
+    )
+    # axs[1, 1].plot(
+    #     long_x_axis,
+    #     long_buyer.df["Total with tax"],
+    #     linestyle="--",
+    #     color="tab:blue",
+    #     label="+ federal tax",
+    # )
+    axs[1, 1].plot(
+        long_x_axis,
+        long_renter.df["Total housing payment (28%)"],
+        linestyle="-",
+        color="tab:orange",
+        label="Renting",
+    )
+    # axs[1, 1].plot(
+    #     long_x_axis,
+    #     long_renter.df["Total with tax"],
+    #     linestyle="--",
+    #     color="tab:orange",
+    #     label="+ federal tax",
+    # )
+    axs[1, 1].set_title("Monthly cost")
+    axs[1, 1].set_xlabel("Years")
+    axs[1, 1].set_xlim(0, loan_length_years)
+    axs[1, 1].set_ylabel("$")
+    axs[1, 1].legend()
+
+    # --- Money saved each month ---
+    axs[1, 2].plot(
+        long_x_axis,
+        long_renter.df["Investment deposited"],
+        linestyle="-",
+        color="tab:orange",
+        label="Renting",
+    )
+    axs[1, 2].set_title("Money saved each month by renting")
+    axs[1, 2].set_xlabel("Years")
+    axs[1, 2].set_xlim(0, loan_length_years)
+    axs[1, 2].set_ylabel("$")
+    axs[1, 2].set_ylim(
+        0,
+        None,
+    )
 
     plt.show()
 
 
 if __name__ == "__main__":
 
-    # --- Values common to the purchase and rental for comparison ---
+    # --- Define values common to all scenarios ---
     loan_length_years = 30
-    years_in_home = 10
-    investment_gains_percent_yearly = 3
-    savings = True
+    years_in_home = 5
     capital_gains_tax_percent = 15
 
-    # --- Initialize home purchases and home rentals
-    purchase_1 = purchase(
-        purchase_price=550_000,
-        down_payment_percent=10,
-        interest_rate_yearly=7.125,
-        hoa_monthly=450,
+    # --- Define buying-specific metrics ---
+    purchase_price = 525_000
+    us_down_payment_percent = 13
+    interest_rate_yearly = 7.125
+    pmi_percent_yearly = 0.09  # 0.18 for 10%, 0.09 for 15%, 0 for 20%
+    family_down_payment_percent = 2
+    family_interest_rate_yearly = 1
+    family_loan_length_years = 10
+    hoa_monthly = 450
+    chargeable_rent = 2_700
+    rent_percent_increase_yearly = 3
+    property_manager_cost_percent = 10
+    hoa_percent_increase_yearly = 3
+    tax_percent_yearly = 1.053
+    tax_percent_increase_yearly = 1
+    insurance_monthly = 150
+    insurance_percent_increase_yearly = 3
+    maintenance_percent_yearly = 0.25
+    buying_costs_percent = 3
+    selling_costs_percent = 7
+    appreciation_percent_yearly = 2
+
+    # --- Define renting-specific metrics ---
+    rent_monthly = 2_900
+    hoa_monthly = 0
+    insurance_yearly = 456
+    rent_percent_increase_yearly = 3
+    hoa_percent_increase_yearly = 0
+    insurance_percent_increase_yearly = 3
+
+    # --- Create the "buy and sell" and short-term rent strategies ---
+    short_investment_gains_percent_yearly = 3.5
+    short_savings = True
+
+    buy_and_sell = purchase(
+        purchase_price=purchase_price,
+        us_down_payment_percent=us_down_payment_percent,
+        family_down_payment_percent=family_down_payment_percent,
+        interest_rate_yearly=interest_rate_yearly,
+        family_interest_rate_yearly=family_interest_rate_yearly,
+        hoa_monthly=hoa_monthly,
+        years_in_home=years_in_home,
+        chargeable_rent=chargeable_rent,
+        rent_percent_increase_yearly=rent_percent_increase_yearly,
+        property_manager_percent_cost=property_manager_cost_percent,
         loan_length_years=loan_length_years,
-        hoa_percent_increase_yearly=3,
-        tax_percent_yearly=1.053,
-        tax_percent_increase_yearly=1,
-        insurance_monthly=150,
-        insurance_percent_increase_yearly=3,
-        pmi_percent_yearly=0.09,  # 0.18
-        maintenance_percent_yearly=0.5,
-        buying_costs_percent=3,
-        selling_costs_percent=7,
-        appreciation_percent_yearly=4,
-        investment_gains_percent_yearly=investment_gains_percent_yearly,
+        family_loan_length_years=family_loan_length_years,
+        hoa_percent_increase_yearly=hoa_percent_increase_yearly,
+        tax_percent_yearly=tax_percent_yearly,
+        tax_percent_increase_yearly=tax_percent_increase_yearly,
+        insurance_monthly=insurance_monthly,
+        insurance_percent_increase_yearly=insurance_percent_increase_yearly,
+        pmi_percent_yearly=pmi_percent_yearly,
+        maintenance_percent_yearly=maintenance_percent_yearly,
+        buying_costs_percent=buying_costs_percent,
+        selling_costs_percent=selling_costs_percent,
+        appreciation_percent_yearly=appreciation_percent_yearly,
+        investment_gains_percent_yearly=short_investment_gains_percent_yearly,
         capital_gains_tax_percent=capital_gains_tax_percent,
     )
 
-    rental_1 = rental(
-        rent_monthly=3_000,
-        hoa_monthly=0,
-        insurance_yearly=456,
-        rent_percent_increase_yearly=3,
-        hoa_percent_increase_yearly=0,
-        insurance_percent_increase_yearly=3,
-        investment_gains_percent_yearly=investment_gains_percent_yearly,
+    rent_short = rental(
+        rent_monthly=rent_monthly,
+        hoa_monthly=hoa_monthly,
+        insurance_yearly=insurance_yearly,
+        years_in_home=years_in_home,
+        rent_percent_increase_yearly=rent_percent_increase_yearly,
+        hoa_percent_increase_yearly=hoa_percent_increase_yearly,
+        insurance_percent_increase_yearly=insurance_percent_increase_yearly,
+        investment_gains_percent_yearly=short_investment_gains_percent_yearly,
+        loan_length_years=loan_length_years,
+        capital_gains_tax_percent=capital_gains_tax_percent,
+    )
+
+    # --- Create the "buy and keep" and long-term rent strategies ---
+    long_investment_gains_percent_yearly = 7
+    long_savings = False
+
+    buy_and_keep = purchase(
+        purchase_price=purchase_price,
+        us_down_payment_percent=us_down_payment_percent,
+        family_down_payment_percent=family_down_payment_percent,
+        interest_rate_yearly=interest_rate_yearly,
+        family_interest_rate_yearly=family_interest_rate_yearly,
+        hoa_monthly=hoa_monthly,
+        years_in_home=years_in_home,
+        chargeable_rent=chargeable_rent,
+        rent_percent_increase_yearly=rent_percent_increase_yearly,
+        property_manager_percent_cost=property_manager_cost_percent,
+        loan_length_years=loan_length_years,
+        family_loan_length_years=family_loan_length_years,
+        hoa_percent_increase_yearly=hoa_percent_increase_yearly,
+        tax_percent_yearly=tax_percent_yearly,
+        tax_percent_increase_yearly=tax_percent_increase_yearly,
+        insurance_monthly=insurance_monthly,
+        insurance_percent_increase_yearly=insurance_percent_increase_yearly,
+        pmi_percent_yearly=pmi_percent_yearly,
+        maintenance_percent_yearly=maintenance_percent_yearly,
+        buying_costs_percent=buying_costs_percent,
+        selling_costs_percent=selling_costs_percent,
+        appreciation_percent_yearly=appreciation_percent_yearly,
+        investment_gains_percent_yearly=short_investment_gains_percent_yearly,
+        capital_gains_tax_percent=capital_gains_tax_percent,
+    )
+
+    rent_long = rental(
+        rent_monthly=rent_monthly,
+        hoa_monthly=hoa_monthly,
+        insurance_yearly=insurance_yearly,
+        years_in_home=years_in_home,
+        rent_percent_increase_yearly=rent_percent_increase_yearly,
+        hoa_percent_increase_yearly=hoa_percent_increase_yearly,
+        insurance_percent_increase_yearly=insurance_percent_increase_yearly,
+        investment_gains_percent_yearly=long_investment_gains_percent_yearly,
         loan_length_years=loan_length_years,
         capital_gains_tax_percent=capital_gains_tax_percent,
     )
 
     # --- Define income and federal tax metrics ---
-    iat_1 = incomeAndTax(
+    iat = incomeAndTax(
         income_yearly=190_000,
         income_percent_increase_yearly=3,
         federal_standard_deduction=32_200,
@@ -288,14 +504,39 @@ if __name__ == "__main__":
     # defined investment gains % (yearly) ---
 
     calculate_assets(
-        buyer=purchase_1,
-        renter=rental_1,
-        iat=iat_1,
+        buyer=buy_and_sell,
+        renter=rent_short,
+        iat=iat,
         loan_length_years=loan_length_years,
         years_in_home=years_in_home,
-        savings=savings,
+        savings=short_savings,
     )
 
-    # view_df(rental_1.df)
+    calculate_assets(
+        buyer=buy_and_keep,
+        renter=rent_long,
+        iat=iat,
+        loan_length_years=loan_length_years,
+        years_in_home=years_in_home,
+        savings=long_savings,
+    )
 
-    plot_assets(buyer=purchase_1, renter=rental_1, years_in_home=years_in_home)
+    print(
+        f"\nOur all-in cost: ${purchase_price * us_down_payment_percent/100 + purchase_price * buying_costs_percent/100:,.0f}"
+    )
+    print(f"Us down payment: ${purchase_price * us_down_payment_percent/100:,.0f}")
+    print(f"Buying costs: ${purchase_price * buying_costs_percent/100:,.0f}\n")
+    print(
+        f"Family down payment: ${purchase_price * family_down_payment_percent/100:,.0f}\n"
+    )
+
+    # view_df(buy_and_sell.df)
+
+    plot_assets(
+        short_buyer=buy_and_sell,
+        short_renter=rent_short,
+        long_buyer=buy_and_keep,
+        long_renter=rent_long,
+        years_in_home=years_in_home,
+        loan_length_years=loan_length_years,
+    )
