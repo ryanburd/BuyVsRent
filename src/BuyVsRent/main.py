@@ -110,6 +110,49 @@ def calculate_assets(
     renter.calculate_net_assets()
 
 
+def print_affordability(
+    purchase_price,
+    us_down_payment_percent,
+    buying_costs_percent,
+    family_down_payment_percent,
+    buyer,
+    renter,
+    iat,
+    inheritance_monthly,
+):
+    print(f"\n--- Up-front buying costs ---")
+    print(
+        f"\nOur all-in cost: ${purchase_price * us_down_payment_percent/100 + purchase_price * buying_costs_percent/100:,.0f}"
+    )
+    print(f"Us down payment: ${purchase_price * us_down_payment_percent/100:,.0f}")
+    print(f"Buying costs: ${purchase_price * buying_costs_percent/100:,.0f}\n")
+    print(
+        f"Family down payment: ${purchase_price * family_down_payment_percent/100:,.0f}\n"
+    )
+
+    print(f"--- Housing monthly payment % of income w/o inheritance ---")
+    print(
+        f"Buying (w/o maintenance): {100 * buyer.df.loc[1, "Total housing payment (28%)"] / (iat.df.loc[1, "Yearly income"]/12):.0f} %"
+    )
+    print(
+        f"Buying (w/ maintenance): {100 * buyer.df.loc[1, "Total with maintenance"] / (iat.df.loc[1, "Yearly income"]/12):.0f} %"
+    )
+    print(
+        f"Renting: {100 * renter.df.loc[1, "Total housing payment (28%)"] / (iat.df.loc[1, "Yearly income"]/12):.0f} %\n"
+    )
+
+    print(f"--- Housing monthly payment % of income w/ inheritance ---")
+    print(
+        f"Buying (w/o maintenance): {100 * buyer.df.loc[1, "Total housing payment (28%)"] / (iat.df.loc[1, "Yearly income"]/12 + inheritance_monthly):.0f} %"
+    )
+    print(
+        f"Buying (w/ maintenance): {100 * buyer.df.loc[1, "Total with maintenance"] / (iat.df.loc[1, "Yearly income"]/12 + inheritance_monthly):.0f} %"
+    )
+    print(
+        f"Renting: {100 * renter.df.loc[1, "Total housing payment (28%)"] / (iat.df.loc[1, "Yearly income"]/12 + inheritance_monthly):.0f} %\n"
+    )
+
+
 def view_df(df):
     root = tk.Tk()
     root.withdraw()
@@ -352,13 +395,14 @@ if __name__ == "__main__":
     loan_length_years = 30
     years_in_home = 5
     capital_gains_tax_percent = 15
+    inheritance_monthly = 2_495
 
     # --- Define buying-specific metrics ---
     purchase_price = 550_000
-    us_down_payment_percent = 12
+    us_down_payment_percent = 10
     interest_rate_yearly = 7.125
-    pmi_percent_yearly = 0.09  # 0.18 for 10%, 0.09 for 15%, 0 for 20%
-    family_down_payment_percent = 3
+    pmi_percent_yearly = 0.18  # 0.18 for 10%, 0.09 for 15%, 0 for 20%
+    family_down_payment_percent = 0
     family_interest_rate_yearly = 1
     family_loan_length_years = 10
     hoa_monthly = 450
@@ -521,17 +565,22 @@ if __name__ == "__main__":
         savings=long_savings,
     )
 
-    print(
-        f"\nOur all-in cost: ${purchase_price * us_down_payment_percent/100 + purchase_price * buying_costs_percent/100:,.0f}"
-    )
-    print(f"Us down payment: ${purchase_price * us_down_payment_percent/100:,.0f}")
-    print(f"Buying costs: ${purchase_price * buying_costs_percent/100:,.0f}\n")
-    print(
-        f"Family down payment: ${purchase_price * family_down_payment_percent/100:,.0f}\n"
+    # --- Print out affordability metrics ---
+    print_affordability(
+        purchase_price,
+        us_down_payment_percent,
+        buying_costs_percent,
+        family_down_payment_percent,
+        buy_and_sell,
+        rent_short,
+        iat,
+        inheritance_monthly,
     )
 
-    # view_df(buy_and_sell.df)
+    # --- View a chosen dataframe for quality checking ---
+    # view_df(iat.df)
 
+    # --- View the comparison plots to determine whether buying or renting is better ---
     plot_assets(
         short_buyer=buy_and_sell,
         short_renter=rent_short,
