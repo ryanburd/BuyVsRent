@@ -354,15 +354,15 @@ if __name__ == "__main__":
     capital_gains_tax_percent = 15
 
     # --- Define buying-specific metrics ---
-    purchase_price = 525_000
-    us_down_payment_percent = 13
+    purchase_price = 550_000
+    us_down_payment_percent = 15
     interest_rate_yearly = 7.125
     pmi_percent_yearly = 0.09  # 0.18 for 10%, 0.09 for 15%, 0 for 20%
-    family_down_payment_percent = 2
+    family_down_payment_percent = 0
     family_interest_rate_yearly = 1
     family_loan_length_years = 10
     hoa_monthly = 450
-    chargeable_rent = 2_700
+    chargeable_rent = 3_000  # HOW SHOULD THIS BE ESTIMATED? IT INFLUENCES THE PROSPECTS OF 'BUYING AND KEEPING' HEAVILY!
     rent_percent_increase_yearly = 3
     property_manager_cost_percent = 10
     hoa_percent_increase_yearly = 3
@@ -373,7 +373,7 @@ if __name__ == "__main__":
     maintenance_percent_yearly = 0.25
     buying_costs_percent = 3
     selling_costs_percent = 7
-    appreciation_percent_yearly = 2
+    appreciation_percent_yearly = 2  # HOW SHOULD THIS BE ESTIMATED? IT INFLUENCES THE PROSPECTS OF BUYING HEAVILY!
 
     # --- Define renting-specific metrics ---
     rent_monthly = 2_900
@@ -384,7 +384,7 @@ if __name__ == "__main__":
     insurance_percent_increase_yearly = 3
 
     # --- Create the "buy and sell" and short-term rent strategies ---
-    short_investment_gains_percent_yearly = 3.5
+    short_investment_gains_percent_yearly = 3
     short_savings = True
 
     buy_and_sell = purchase(
@@ -428,7 +428,7 @@ if __name__ == "__main__":
     )
 
     # --- Create the "buy and keep" and long-term rent strategies ---
-    long_investment_gains_percent_yearly = 7
+    long_investment_gains_percent_yearly = 8  # HOW SHOULD THIS BE ESTIMATED? IT INFLUENCES THE PROSPECTS OF 'BUYING AND KEEPING' HEAVILY!
     long_savings = False
 
     buy_and_keep = purchase(
