@@ -120,34 +120,34 @@ def print_affordability(
     iat,
     inheritance_monthly,
 ):
-    print(f"\n--- Up-front buying costs ---")
-    print(
-        f"\nOur all-in cost: ${purchase_price * us_down_payment_percent/100 + purchase_price * buying_costs_percent/100:,.0f}"
-    )
-    print(f"Us down payment: ${purchase_price * us_down_payment_percent/100:,.0f}")
-    print(f"Buying costs: ${purchase_price * buying_costs_percent/100:,.0f}\n")
-    print(
-        f"Family down payment: ${purchase_price * family_down_payment_percent/100:,.0f}\n"
-    )
+    # print(f"\n--- Up-front buying costs ---")
+    # print(
+    #     f"\nOur all-in cost: ${purchase_price * us_down_payment_percent/100 + purchase_price * buying_costs_percent/100:,.0f}"
+    # )
+    # print(f"Us down payment: ${purchase_price * us_down_payment_percent/100:,.0f}")
+    # print(f"Buying costs: ${purchase_price * buying_costs_percent/100:,.0f}\n")
+    # print(
+    #     f"Family down payment: ${purchase_price * family_down_payment_percent/100:,.0f}\n"
+    # )
 
     print(f"--- Housing monthly payment % of income w/o inheritance ---")
-    print(
-        f"Buying (w/o maintenance): {100 * buyer.df.loc[1, "Total housing payment (28%)"] / (iat.df.loc[1, "Yearly income"]/12):.0f} %"
-    )
-    print(
-        f"Buying (w/ maintenance): {100 * buyer.df.loc[1, "Total with maintenance"] / (iat.df.loc[1, "Yearly income"]/12):.0f} %"
-    )
+    # print(
+    #     f"Buying (w/o maintenance): {100 * buyer.df.loc[1, "Total housing payment (28%)"] / (iat.df.loc[1, "Yearly income"]/12):.0f} %"
+    # )
+    # print(
+    #     f"Buying (w/ maintenance): {100 * buyer.df.loc[1, "Total with maintenance"] / (iat.df.loc[1, "Yearly income"]/12):.0f} %"
+    # )
     print(
         f"Renting: {100 * renter.df.loc[1, "Total housing payment (28%)"] / (iat.df.loc[1, "Yearly income"]/12):.0f} %\n"
     )
 
     print(f"--- Housing monthly payment % of income w/ inheritance ---")
-    print(
-        f"Buying (w/o maintenance): {100 * buyer.df.loc[1, "Total housing payment (28%)"] / (iat.df.loc[1, "Yearly income"]/12 + inheritance_monthly):.0f} %"
-    )
-    print(
-        f"Buying (w/ maintenance): {100 * buyer.df.loc[1, "Total with maintenance"] / (iat.df.loc[1, "Yearly income"]/12 + inheritance_monthly):.0f} %"
-    )
+    # print(
+    #     f"Buying (w/o maintenance): {100 * buyer.df.loc[1, "Total housing payment (28%)"] / (iat.df.loc[1, "Yearly income"]/12 + inheritance_monthly):.0f} %"
+    # )
+    # print(
+    #     f"Buying (w/ maintenance): {100 * buyer.df.loc[1, "Total with maintenance"] / (iat.df.loc[1, "Yearly income"]/12 + inheritance_monthly):.0f} %"
+    # )
     print(
         f"Renting: {100 * renter.df.loc[1, "Total housing payment (28%)"] / (iat.df.loc[1, "Yearly income"]/12 + inheritance_monthly):.0f} %\n"
     )
@@ -398,11 +398,11 @@ if __name__ == "__main__":
     inheritance_monthly = 2_495
 
     # --- Define buying-specific metrics ---
-    purchase_price = 550_000
-    us_down_payment_percent = 10
+    purchase_price = 525_000
+    us_down_payment_percent = 16
     interest_rate_yearly = 7.125
-    pmi_percent_yearly = 0.18  # 0.18 for 10%, 0.09 for 15%, 0 for 20%
-    family_down_payment_percent = 0
+    pmi_percent_yearly = 0.0  # 0.18 for 10%, 0.09 for 15%, 0 for 20%
+    family_down_payment_percent = 4
     family_interest_rate_yearly = 1
     family_loan_length_years = 10
     hoa_monthly = 450
@@ -420,7 +420,7 @@ if __name__ == "__main__":
     appreciation_percent_yearly = 2  # HOW SHOULD THIS BE ESTIMATED? IT INFLUENCES THE PROSPECTS OF BUYING HEAVILY!
 
     # --- Define renting-specific metrics ---
-    rent_monthly = 2_900
+    rent_monthly = 3_200
     hoa_monthly = 0
     insurance_yearly = 456
     rent_percent_increase_yearly = 3
@@ -581,11 +581,11 @@ if __name__ == "__main__":
     # view_df(iat.df)
 
     # --- View the comparison plots to determine whether buying or renting is better ---
-    plot_assets(
-        short_buyer=buy_and_sell,
-        short_renter=rent_short,
-        long_buyer=buy_and_keep,
-        long_renter=rent_long,
-        years_in_home=years_in_home,
-        loan_length_years=loan_length_years,
-    )
+    # plot_assets(
+    #     short_buyer=buy_and_sell,
+    #     short_renter=rent_short,
+    #     long_buyer=buy_and_keep,
+    #     long_renter=rent_long,
+    #     years_in_home=years_in_home,
+    #     loan_length_years=loan_length_years,
+    # )
