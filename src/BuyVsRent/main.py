@@ -153,6 +153,146 @@ def print_affordability(
     )
 
 
+def rent_to_own(
+    home_price: float,
+    buying_costs_percent: float,
+    appreciation_percent_yearly: float,
+    years_to_buy: float,
+    cash_in_hand: float,
+    percent_to_savings: float,
+    percent_to_invest: float,
+    savings_return_percent_yearly: float,
+    invest_return_percent_yearly: float,
+    marginal_tax_percent: float,
+    capital_tax_percent: float,
+    rent_monthly: float,
+    rent_percent_increase_yearly: float,
+    insurance_monthly: float,
+    insurance_percent_increase_yearly: float,
+):
+
+    if percent_to_savings + percent_to_invest != 100:
+        raise ValueError(
+            f"Savings % + Investment % must equal 100 %. Current sum is {percent_to_savings+percent_to_invest:.0f} %"
+        )
+
+    # Convert years to months
+    months_to_buy: int = int(years_to_buy * 12)
+
+    # Create the dataframe to store each month's metrics
+    df = pd.DataFrame(
+        index=range(months_to_buy + 1),
+        columns=[
+            "Purchase price",
+            "Savings balance",
+            "Savings capital",
+            "Savings after tax",
+            "Investment balance",
+            "This month's gains",
+            "Investment capital",
+            "Investment after tax",
+            "Total cash after tax",
+        ],
+    )
+
+    # Inititalize each column of the dataframe
+    df.loc[0, "Purchase price"] = home_price
+    df.loc[0, "Savings balance"] = cash_in_hand * percent_to_savings / 100
+    df.loc[0, "Savings capital"] = cash_in_hand * percent_to_savings / 100
+    df.loc[0, "Savings after tax"] = cash_in_hand * percent_to_savings / 100
+    df.loc[0, "Investment balance"] = cash_in_hand * percent_to_invest / 100
+    df.loc[0, "This month's gains"] = 0
+    df.loc[0, "Investment capital"] = cash_in_hand * percent_to_invest / 100
+    df.loc[0, "Investment after tax"] = cash_in_hand * percent_to_invest / 100
+
+    # Loop through each month and update the dataframe's metrics
+    for m in range(1, months_to_buy + 1):
+
+        # Update the purchase price
+        df.loc[m, "Purchase price"] = df.loc[m - 1, "Purchase price"] * (
+            (1 + appreciation_percent_yearly / 100) ** (1 / 12)
+        )
+
+        # Update the savings balance with gains
+        savings_gains = df.loc[m - 1, "Savings balance"] * (
+            (1 + savings_return_percent_yearly / 100) ** (1 / 12) - 1
+        )
+
+        df.loc[m, "Savings balance"] = df.loc[m - 1, "Savings balance"] + savings_gains
+
+        # Update the savings capital
+        df.loc[m, "Savings capital"] = df.loc[m - 1, "Savings capital"]
+
+        # Update the savings balance after taxes
+        savings_tax = (
+            (df.loc[m, "Savings balance"] - df.loc[m, "Savings capital"])
+            * marginal_tax_percent
+            / 100
+        )
+
+        df.loc[m, "Savings after tax"] = df.loc[m, "Savings balance"] - savings_tax
+
+        # Update the investment gains and balance
+        invest_gains = df.loc[m - 1, "Investment balance"] * (
+            (1 + invest_return_percent_yearly / 100) ** (1 / 12) - 1
+        )
+
+        df.loc[m, "Investment balance"] = (
+            df.loc[m - 1, "Investment balance"] + invest_gains
+        )
+        df.loc[m, "This month's gains"] = invest_gains
+
+        # Update the investment balance after taxes
+        first_month_marginal = max(m - 11, 1)
+        invest_tax = (
+            df.loc[: first_month_marginal - 1, "This month's gains"].sum()
+            * capital_tax_percent
+            / 100
+            + df.loc[first_month_marginal:m, "This month's gains"].sum()
+            * marginal_tax_percent
+            / 100
+        )
+        df.loc[m, "Investment after tax"] = df.loc[m, "Investment balance"] - invest_tax
+
+    # Perform calculations that can be done outside the for loop
+    df["Total cash after tax"] = df["Savings after tax"] + df["Investment after tax"]
+
+    print(df)
+
+    # Plot the total cash after tax and the total up-front costs of buying the home at different down-payment percentages over time
+    fig, axs = plt.subplots(1, 2, constrained_layout=True)
+
+    x_axis = range(months_to_buy + 1)
+
+    axs[0].set_title("Total cash and up-front costs over time")
+    axs[0].plot(x_axis, df["Total cash after tax"], label="Total cash after tax")
+    for d in [20, 15, 10, 5]:
+        axs[0].plot(
+            x_axis,
+            df["Purchase price"] * (buying_costs_percent + d) / 100,
+            linestyle="--",
+            label=f"{d} % down",
+        )
+    axs[0].set_xlabel("Months")
+    axs[0].set_xlim(0, months_to_buy)
+    axs[0].set_ylabel("$")
+    axs[0].set_ylim(0, None)
+    axs[0].legend()
+
+    axs[1].set_title(f"Down payment % available")
+    up_front_available_percent = df["Total cash after tax"] / df["Purchase price"] * 100
+    down_payment_available_percent = up_front_available_percent - buying_costs_percent
+    axs[1].plot(x_axis, down_payment_available_percent)
+    axs[1].set_xlabel("Months")
+    axs[1].set_xlim(0, months_to_buy)
+    axs[1].set_ylabel("%")
+    axs[1].set_ylim(0, None)
+
+    plt.show()
+
+    return
+
+
 def view_df(df):
     root = tk.Tk()
     root.withdraw()
@@ -547,35 +687,35 @@ if __name__ == "__main__":
     # buyer's and renter's asset values over time. Each pair must have a shared
     # defined investment gains % (yearly) ---
 
-    calculate_assets(
-        buyer=buy_and_sell,
-        renter=rent_short,
-        iat=iat,
-        loan_length_years=loan_length_years,
-        years_in_home=years_in_home,
-        savings=short_savings,
-    )
+    # calculate_assets(
+    #     buyer=buy_and_sell,
+    #     renter=rent_short,
+    #     iat=iat,
+    #     loan_length_years=loan_length_years,
+    #     years_in_home=years_in_home,
+    #     savings=short_savings,
+    # )
 
-    calculate_assets(
-        buyer=buy_and_keep,
-        renter=rent_long,
-        iat=iat,
-        loan_length_years=loan_length_years,
-        years_in_home=years_in_home,
-        savings=long_savings,
-    )
+    # calculate_assets(
+    #     buyer=buy_and_keep,
+    #     renter=rent_long,
+    #     iat=iat,
+    #     loan_length_years=loan_length_years,
+    #     years_in_home=years_in_home,
+    #     savings=long_savings,
+    # )
 
-    # --- Print out affordability metrics ---
-    print_affordability(
-        purchase_price,
-        us_down_payment_percent,
-        buying_costs_percent,
-        family_down_payment_percent,
-        buy_and_sell,
-        rent_short,
-        iat,
-        inheritance_monthly,
-    )
+    # --- Print out affordability metrics (requires one of the calculate_assets() to be run) ---
+    # print_affordability(
+    #     purchase_price,
+    #     us_down_payment_percent,
+    #     buying_costs_percent,
+    #     family_down_payment_percent,
+    #     buy_and_sell,
+    #     rent_short,
+    #     iat,
+    #     inheritance_monthly,
+    # )
 
     # --- View a chosen dataframe for quality checking ---
     # view_df(iat.df)
@@ -589,3 +729,22 @@ if __name__ == "__main__":
     #     years_in_home=years_in_home,
     #     loan_length_years=loan_length_years,
     # )
+
+    # --- View a plot showing total cash and up-front costs needed to buy a home in the future. Does not require calculate_assets() to be run ---
+    rent_to_own(
+        home_price=700_000,
+        buying_costs_percent=3,
+        appreciation_percent_yearly=4,
+        years_to_buy=5,
+        cash_in_hand=100_000,
+        percent_to_savings=75,
+        percent_to_invest=25,
+        savings_return_percent_yearly=3.5,
+        invest_return_percent_yearly=8,
+        marginal_tax_percent=22,
+        capital_tax_percent=15,
+        rent_monthly=3_000,
+        rent_percent_increase_yearly=3,
+        insurance_monthly=35,
+        insurance_percent_increase_yearly=3,
+    )
