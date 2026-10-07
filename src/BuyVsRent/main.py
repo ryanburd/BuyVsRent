@@ -205,8 +205,12 @@ def rent_to_own(
     rent_percent_increase_yearly: float,
     insurance_monthly: float,
     insurance_percent_increase_yearly: float,
+    utilities_monthly: float,
+    utilities_percent_increase_yearly: float,
+    percent_of_excess_to_save: float,
     income_yearly: float,
     income_percent_increase_yearly: float,
+    inheritance_monthly: float,
 ):
 
     if percent_to_savings + percent_to_invest != 100:
@@ -225,6 +229,7 @@ def rent_to_own(
             "Income monthly",
             "Rent",
             "Insurance",
+            "Utilities",
             "Total housing payment",
             "Savable cash",
             "Savings balance",
@@ -243,6 +248,7 @@ def rent_to_own(
     df.loc[0, "Income monthly"] = income_yearly / 12
     df.loc[0, "Rent"] = 0
     df.loc[0, "Insurance"] = 0
+    df.loc[0, "Utilities"] = 0
     df.loc[0, "Total housing payment"] = 0
     df.loc[0, "Savable cash"] = 0
     df.loc[0, "Savings balance"] = cash_in_hand * percent_to_savings / 100
@@ -294,8 +300,21 @@ def rent_to_own(
                     1 + insurance_percent_increase_yearly / 100
                 )
 
+        # Update the utilities
+        if m == 1:
+            df.loc[m, "Utilities"] = utilities_monthly
+        else:
+            if np.mod(m - 1, 12) != 0:
+                df.loc[m, "Utilities"] = df.loc[m - 1, "Utilities"]
+            else:
+                df.loc[m, "Utilities"] = df.loc[m - 1, "Utilities"] * (
+                    1 + utilities_percent_increase_yearly / 100
+                )
+
         # Update the total housing payment
-        df.loc[m, "Total housing payment"] = df.loc[m, "Rent"] + df.loc[m, "Insurance"]
+        df.loc[m, "Total housing payment"] = (
+            df.loc[m, "Rent"] + df.loc[m, "Insurance"] + df.loc[m, "Utilities"]
+        )
 
         # Update the savable cash
         df.loc[m, "Savable cash"] = (
@@ -310,13 +329,23 @@ def rent_to_own(
         df.loc[m, "Savings balance"] = (
             df.loc[m - 1, "Savings balance"]
             + savings_gains
-            + df.loc[m, "Savable cash"] * percent_to_savings / 100
+            + (
+                df.loc[m, "Savable cash"] * percent_of_excess_to_save / 100
+                + inheritance_monthly
+            )
+            * percent_to_savings
+            / 100
         )
 
         # Update the savings capital
         df.loc[m, "Savings capital"] = (
             df.loc[m - 1, "Savings capital"]
-            + df.loc[m, "Savable cash"] * percent_to_savings / 100
+            + (
+                df.loc[m, "Savable cash"] * percent_of_excess_to_save / 100
+                + inheritance_monthly
+            )
+            * percent_to_savings
+            / 100
         )
 
         # Update the savings balance after taxes
@@ -336,7 +365,12 @@ def rent_to_own(
         df.loc[m, "Investment balance"] = (
             df.loc[m - 1, "Investment balance"]
             + invest_gains
-            + df.loc[m, "Savable cash"] * percent_to_invest / 100
+            + (
+                df.loc[m, "Savable cash"] * percent_of_excess_to_save / 100
+                + inheritance_monthly
+            )
+            * percent_to_invest
+            / 100
         )
 
         df.loc[m, "This month's gains"] = invest_gains
@@ -344,7 +378,12 @@ def rent_to_own(
         # Update the investment capital
         df.loc[m, "Investment capital"] = (
             df.loc[m - 1, "Investment capital"]
-            + df.loc[m, "Savable cash"] * percent_to_invest / 100
+            + (
+                df.loc[m, "Savable cash"] * percent_of_excess_to_save / 100
+                + inheritance_monthly
+            )
+            * percent_to_invest
+            / 100
         )
 
         # Update the investment balance after taxes
@@ -394,10 +433,30 @@ def rent_to_own(
     axs[0, 1].set_ylim(0, None)
 
     axs[1, 0].set_title(f"Monthly savings")
-    axs[1, 0].plot(x_axis[1:], df.loc[1:, "Savable cash"])
+    axs[1, 0].plot(
+        x_axis[1:],
+        df.loc[1:, "Savable cash"] * percent_of_excess_to_save / 100,
+        label="Savable cash",
+    )
+    axs[1, 0].plot(
+        x_axis[1:],
+        df.loc[1:, "Savable cash"] * percent_of_excess_to_save / 100
+        + inheritance_monthly,
+        label="+ inheritance",
+    )
     axs[1, 0].set_xlabel("Years")
     axs[1, 0].set_xlim(0, months_to_buy / 12)
     axs[1, 0].set_ylabel("$")
+    axs[1, 0].legend()
+
+    axs[1, 1].set_title(f"Housing % of gross income")
+    axs[1, 1].plot(
+        x_axis[1:],
+        df.loc[1:, "Total housing payment"] / df.loc[1:, "Income monthly"] * 100,
+    )
+    axs[1, 1].set_xlabel("Years")
+    axs[1, 1].set_xlim(0, months_to_buy / 12)
+    axs[1, 1].set_ylabel("%")
 
     plt.show()
 
@@ -815,13 +874,17 @@ if __name__ == "__main__":
         percent_to_savings=100,
         percent_to_invest=0,
         savings_return_percent_yearly=3.5,
-        invest_return_percent_yearly=8,
+        invest_return_percent_yearly=5,
         marginal_tax_percent=22,
         capital_tax_percent=15,
         rent_monthly=3_500,
         rent_percent_increase_yearly=3,
         insurance_monthly=35,
         insurance_percent_increase_yearly=3,
-        income_yearly=190_000 + 29_940,
+        utilities_monthly=300,
+        utilities_percent_increase_yearly=3,
+        percent_of_excess_to_save=0,
+        income_yearly=190_000,
         income_percent_increase_yearly=1,
+        inheritance_monthly=2_495,
     )
